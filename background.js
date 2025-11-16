@@ -229,7 +229,7 @@ function handleCookieChange(changeInfo) {
     const site = siteProfilesCache[origin];
     const account = site?.accounts?.find((acc) => acc.id === active.accountId);
     if (!account || !account.autoSync) return;
-    scheduleAutoSync(origin, account.id, cookie.storeId, cookie.domain);
+    scheduleAutoSync(origin, account.id, cookie.storeId);
   });
 }
 
@@ -240,12 +240,12 @@ function matchesDomain(hostname, cookieDomain = '') {
   return host === domain || host.endsWith(`.${domain}`);
 }
 
-function scheduleAutoSync(origin, accountId, storeId, cookieDomain) {
+function scheduleAutoSync(origin, accountId, storeId) {
   const key = `${origin}::${accountId}::${storeId || 'default'}`;
   if (AUTO_SYNC_QUEUE.has(key)) {
     return;
   }
-  const job = autoSyncAccount(origin, accountId, storeId, cookieDomain)
+  const job = autoSyncAccount(origin, accountId, storeId)
     .catch(() => {})
     .finally(() => {
       AUTO_SYNC_QUEUE.delete(key);
@@ -253,13 +253,12 @@ function scheduleAutoSync(origin, accountId, storeId, cookieDomain) {
   AUTO_SYNC_QUEUE.set(key, job);
 }
 
-async function autoSyncAccount(origin, accountId, storeId, cookieDomain) {
+async function autoSyncAccount(origin, accountId, storeId) {
   const site = siteProfilesCache[origin];
   if (!site) return;
   const accountIndex = site.accounts?.findIndex((acc) => acc.id === accountId);
   if (accountIndex === undefined || accountIndex < 0) return;
-  const domain = cookieDomain?.replace(/^\./, '') || new URL(origin).hostname;
-  const query = { domain };
+  const query = { url: origin };
   if (storeId) {
     query.storeId = storeId;
   }
