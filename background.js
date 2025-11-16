@@ -91,11 +91,20 @@ async function applyCookies(origin, cookies) {
     if (!isHostCookie) {
       details.domain = storedDomain || `.${fallbackHost}`;
     }
-    if (cookie.expirationDate) {
-      details.expirationDate = cookie.expirationDate;
+    if (cookie.storeId) {
+      details.storeId = cookie.storeId;
+    }
+    if (cookie.partitionKey) {
+      details.partitionKey = cookie.partitionKey;
     }
     if (cookie.sameSite) {
       details.sameSite = cookie.sameSite;
+    }
+    if (cookie.priority) {
+      details.priority = cookie.priority;
+    }
+    if (cookie.expirationDate) {
+      details.expirationDate = cookie.expirationDate;
     }
     return chrome.cookies.set(details);
   });
@@ -138,7 +147,14 @@ async function handleFetchCookiesRequest(payload = {}) {
     throw new Error('Select or save a site first.');
   }
   const domain = new URL(origin).hostname;
-  const cookies = await chrome.cookies.getAll({ domain });
+  const query = { domain };
+  if (payload.tabId) {
+    const storeId = await resolveStoreIdFromTab(payload.tabId);
+    if (storeId) {
+      query.storeId = storeId;
+    }
+  }
+  const cookies = await chrome.cookies.getAll(query);
   return cookies.map((cookie) => ({
     name: cookie.name,
     value: cookie.value,
@@ -148,6 +164,19 @@ async function handleFetchCookiesRequest(payload = {}) {
     httpOnly: cookie.httpOnly,
     hostOnly: cookie.hostOnly,
     expirationDate: cookie.expirationDate,
-    sameSite: cookie.sameSite
+    sameSite: cookie.sameSite,
+    priority: cookie.priority,
+    storeId: cookie.storeId,
+    partitionKey: cookie.partitionKey,
+    session: cookie.session
   }));
+}
+
+async function resolveStoreIdFromTab(tabId) {
+  if (typeof tabId !== 'number') {
+    return null;
+  }
+  const stores = await chrome.cookies.getAllCookieStores();
+  const targetStore = stores.find((store) => Array.isArray(store.tabIds) && store.tabIds.includes(tabId));
+  return targetStore ? targetStore.id : null;
 }

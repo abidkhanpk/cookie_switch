@@ -125,8 +125,12 @@ button.danger.ghost {
   justify-content: flex-end;
   row-gap: 6px;
 }
-.actions.start {
-  justify-content: flex-start;
+.actions.site-actions {
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
 
 .site-select {
@@ -213,6 +217,11 @@ select {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+.cookie-placeholder {
+  text-align: center;
+  color: #94a3b8;
+  font-style: italic;
 }
 
 .empty-state {

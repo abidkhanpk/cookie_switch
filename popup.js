@@ -12,7 +12,6 @@ const accountStatus = document.getElementById('accountStatus');
 const accountFormTitle = document.getElementById('accountFormTitle');
 const accountNameInput = document.getElementById('accountName');
 const cookiesTableBody = document.querySelector('#cookiesTable tbody');
-const addCookieRowBtn = document.getElementById('addCookieRowBtn');
 const importCookiesBtn = document.getElementById('importCookiesBtn');
 const saveAccountBtn = document.getElementById('saveAccountBtn');
 const resetAccountBtn = document.getElementById('resetAccountForm');
@@ -28,6 +27,7 @@ let currentSiteKey = null;
 let editingAccountId = null;
 const statusTimers = new WeakMap();
 const APP_VERSION = chrome.runtime.getManifest().version || '1.0.0';
+const COOKIE_PLACEHOLDER_TEXT = 'Use \"Get Current Account\" to capture cookies.';
 
 init();
 
@@ -94,7 +94,6 @@ function bindEvents() {
     displayStatus(siteStatus, 'Site removed.', 'success');
   });
 
-  addCookieRowBtn.addEventListener('click', () => addCookieRow());
   importCookiesBtn.addEventListener('click', () => importCurrentCookies());
 
   saveAccountBtn.addEventListener('click', () => saveAccount());
@@ -228,7 +227,7 @@ function resetAccountForm() {
   editingAccountId = null;
   accountFormTitle.textContent = 'Add Account';
   accountNameInput.value = '';
-  setCookiesInForm([]);
+  showCookiePlaceholder();
 }
 
 function populateAccountForm(account) {
@@ -239,7 +238,11 @@ function populateAccountForm(account) {
 }
 
 function addCookieRow(cookie = {}) {
+  if (hasCookiePlaceholder()) {
+    cookiesTableBody.innerHTML = '';
+  }
   const row = document.createElement('tr');
+  row.className = 'cookie-row';
   row.innerHTML = `
     <td><input type="text" class="cookie-name" value="${cookie.name || ''}" placeholder="session" /></td>
     <td><input type="text" class="cookie-value" value="${cookie.value || ''}" placeholder="value" /></td>
@@ -273,20 +276,33 @@ function addCookieRow(cookie = {}) {
   });
   row.querySelector('.remove-row').addEventListener('click', () => {
     row.remove();
-    if (!cookiesTableBody.children.length) {
-      addCookieRow();
+    if (!cookiesTableBody.querySelector('.cookie-row')) {
+      showCookiePlaceholder();
     }
   });
+  setRowMeta(row, cookie);
   cookiesTableBody.appendChild(row);
 }
 
 function setCookiesInForm(cookies = []) {
   cookiesTableBody.innerHTML = '';
   if (!cookies.length) {
-    addCookieRow();
+    showCookiePlaceholder();
     return;
   }
   cookies.forEach((cookie) => addCookieRow(cookie));
+}
+
+function showCookiePlaceholder() {
+  cookiesTableBody.innerHTML = `
+    <tr class="cookie-placeholder-row">
+      <td colspan="7" class="cookie-placeholder">${COOKIE_PLACEHOLDER_TEXT}</td>
+    </tr>
+  `;
+}
+
+function hasCookiePlaceholder() {
+  return Boolean(cookiesTableBody.querySelector('.cookie-placeholder-row'));
 }
 
 function saveAccount() {
@@ -325,7 +341,10 @@ function saveAccount() {
 }
 
 function collectCookiesFromForm() {
-  const rows = Array.from(cookiesTableBody.querySelectorAll('tr'));
+  const rows = Array.from(cookiesTableBody.querySelectorAll('tr.cookie-row'));
+  if (!rows.length) {
+    return [];
+  }
   let domainFallback = '';
   if (currentSiteKey) {
     try {
@@ -346,7 +365,7 @@ function collectCookiesFromForm() {
     const secureChecked = row.querySelector('.cookie-secure').checked;
     const httpOnly = row.querySelector('.cookie-httpOnly').checked;
     const isHostCookie = row.dataset.hostOnly === 'true' || name.startsWith('__Host-');
-    const fallbackHost = domainFallback.replace(/^\./, '');
+    const fallbackHost = domainFallback ? domainFallback.replace(/^\./, '') : '';
     let domainValue = domainInput;
     if (!domainValue && fallbackHost) {
       domainValue = isHostCookie ? fallbackHost : `.${fallbackHost}`;
@@ -364,7 +383,9 @@ function collectCookiesFromForm() {
     if (domainValue) {
       cookieRecord.domain = domainValue;
     }
-    cookies.push(cookieRecord);
+    const meta = getRowMeta(row);
+    meta.hostOnly = isHostCookie;
+    cookies.push(normalizeCookieForStorage({ ...meta, ...cookieRecord }));
   });
   return cookies;
 }
@@ -421,11 +442,12 @@ function exportAccount(account) {
     displayStatus(accountStatus, 'Select a site before exporting.', 'error');
     return;
   }
+  const sanitizedAccount = serializeAccount(account);
   const payload = {
     type: 'cookie-switch/account',
     version: APP_VERSION,
     site: currentSiteKey,
-    account
+    account: sanitizedAccount
   };
   const filename = `cookie-switch-account-${slugify(account.name || 'account')}.json`;
   triggerJsonDownload(filename, payload);
@@ -468,12 +490,19 @@ function exportSiteData() {
     displayStatus(siteStatus, 'Select a site to export.', 'error');
     return;
   }
+  const snapshot = serializeSite(siteProfiles[currentSiteKey], currentSiteKey);
   const payload = {
     type: 'cookie-switch/site',
     version: APP_VERSION,
-    site: siteProfiles[currentSiteKey]
+    site: snapshot
   };
-  const filename = `cookie-switch-site-${slugify(new URL(currentSiteKey).hostname)}.json`;
+  let siteSlug = 'site';
+  try {
+    siteSlug = slugify(new URL(currentSiteKey).hostname);
+  } catch (err) {
+    siteSlug = slugify(currentSiteKey);
+  }
+  const filename = `cookie-switch-site-${siteSlug}.json`;
   triggerJsonDownload(filename, payload);
   displayStatus(siteStatus, 'Site exported.', 'success');
 }
@@ -518,7 +547,7 @@ function exportFullBackup() {
   const payload = {
     type: 'cookie-switch/backup',
     version: APP_VERSION,
-    siteProfiles
+    siteProfiles: serializeAllSites(siteProfiles)
   };
   const filename = `cookie-switch-backup-${new Date().toISOString().split('T')[0]}.json`;
   triggerJsonDownload(filename, payload);
@@ -561,37 +590,47 @@ async function importFullBackup() {
   }
 }
 
-function importCurrentCookies() {
+async function importCurrentCookies() {
   if (!currentSiteKey) {
     displayStatus(accountStatus, 'Save or select a site first.', 'error');
     return;
   }
   displayStatus(accountStatus, 'Fetching cookies from current account...', 'info');
-  chrome.runtime.sendMessage(
-    {
-      type: 'fetch-cookies',
-      payload: {
-        origin: currentSiteKey
-      }
-    },
-    (response) => {
-      if (chrome.runtime.lastError) {
-        displayStatus(accountStatus, chrome.runtime.lastError.message, 'error');
-        return;
-      }
-      if (response?.error) {
-        displayStatus(accountStatus, response.error, 'error');
-        return;
-      }
-      const cookies = response?.cookies || [];
-      setCookiesInForm(cookies);
-      if (!cookies.length) {
-        displayStatus(accountStatus, 'No cookies found for the current domain.', 'info');
-      } else {
-        displayStatus(accountStatus, `Imported ${cookies.length} cookies from the current account.`, 'success');
-      }
+  try {
+    const tabs = await queryTabs({ active: true, currentWindow: true });
+    const activeTab = tabs[0];
+    const payload = {
+      origin: currentSiteKey
+    };
+    if (activeTab?.id) {
+      payload.tabId = activeTab.id;
     }
-  );
+    chrome.runtime.sendMessage(
+      {
+        type: 'fetch-cookies',
+        payload
+      },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          displayStatus(accountStatus, chrome.runtime.lastError.message, 'error');
+          return;
+        }
+        if (response?.error) {
+          displayStatus(accountStatus, response.error, 'error');
+          return;
+        }
+        const cookies = (response?.cookies || []).map((cookie) => normalizeCookieForStorage(cookie));
+        setCookiesInForm(cookies);
+        if (!cookies.length) {
+          displayStatus(accountStatus, 'No cookies found for the current domain.', 'info');
+        } else {
+          displayStatus(accountStatus, `Imported ${cookies.length} cookies from the current account.`, 'success');
+        }
+      }
+    );
+  } catch (error) {
+    displayStatus(accountStatus, error.message || 'Unable to fetch cookies.', 'error');
+  }
 }
 
 function getDefaultDomainValue() {
@@ -604,6 +643,18 @@ function getDefaultDomainValue() {
   } catch (err) {
     return '';
   }
+}
+
+function queryTabs(queryInfo) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.query(queryInfo, (tabs) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      resolve(tabs || []);
+    });
+  });
 }
 
 function normalizeOrigin(value) {
@@ -639,6 +690,105 @@ function displayStatus(target, message, type) {
     statusTimers.delete(target);
   }, 5000);
   statusTimers.set(target, timeout);
+}
+
+function setRowMeta(row, cookie = {}) {
+  row.__meta = cloneCookieMeta(cookie);
+}
+
+function getRowMeta(row) {
+  if (!row.__meta) {
+    return {};
+  }
+  return cloneCookieMeta(row.__meta);
+}
+
+function cloneCookieMeta(cookie = {}) {
+  const meta = {};
+  [
+    'storeId',
+    'partitionKey',
+    'sameSite',
+    'priority',
+    'expirationDate',
+    'sameParty',
+    'session',
+    'firstPartyDomain',
+    'hostOnly'
+  ].forEach((key) => {
+    if (cookie[key] !== undefined) {
+      meta[key] = cloneValue(cookie[key]);
+    }
+  });
+  return meta;
+}
+
+function cloneValue(value) {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  if (typeof structuredClone === 'function') {
+    try {
+      return structuredClone(value);
+    } catch {
+      // fallback
+    }
+  }
+  if (typeof value === 'object') {
+    return JSON.parse(JSON.stringify(value));
+  }
+  return value;
+}
+
+function normalizeCookieForStorage(cookie = {}) {
+  const normalized = { ...cookie };
+  if (!normalized.path) {
+    normalized.path = '/';
+  }
+  if (!normalized.domain) {
+    delete normalized.domain;
+  }
+  if (!normalized.partitionKey) {
+    delete normalized.partitionKey;
+  }
+  if (!normalized.storeId) {
+    delete normalized.storeId;
+  }
+  if (!normalized.sameSite) {
+    delete normalized.sameSite;
+  }
+  if (!normalized.priority) {
+    delete normalized.priority;
+  }
+  if (!normalized.expirationDate && !normalized.session) {
+    delete normalized.expirationDate;
+  }
+  return normalized;
+}
+
+function serializeAccount(account = {}) {
+  return {
+    ...account,
+    cookies: (account.cookies || []).map((cookie) => normalizeCookieForStorage(cookie))
+  };
+}
+
+function serializeSite(site, key) {
+  if (!site) {
+    return null;
+  }
+  return {
+    origin: site.origin || key,
+    accounts: (site.accounts || []).map((account) => serializeAccount(account))
+  };
+}
+
+function serializeAllSites(profiles = {}) {
+  const copy = {};
+  Object.entries(profiles).forEach(([key, site]) => {
+    copy[key] = serializeSite(site, key);
+  });
+  return copy;
 }
 
 function triggerJsonDownload(filename, data) {
@@ -693,8 +843,9 @@ function slugify(value) {
 }
 
 function formatImportedAccount(account = {}) {
+  const sanitized = serializeAccount(account);
   return {
-    ...account,
+    ...sanitized,
     id: crypto.randomUUID ? crypto.randomUUID() : `acc-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     updatedAt: Date.now()
   };
