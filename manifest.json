@@ -16,6 +16,16 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Cookie Switch"
+    "default_title": "Cookie Switch",
+    "default_icon": {
+      "16": "icons/pacman-16.png",
+      "32": "icons/pacman-32.png"
+    }
+  },
+  "icons": {
+    "16": "icons/pacman-16.png",
+    "32": "icons/pacman-32.png",
+    "48": "icons/pacman-48.png",
+    "128": "icons/pacman-128.png"
   }
 }
