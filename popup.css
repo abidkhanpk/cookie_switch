@@ -22,6 +22,7 @@ body {
 header {
   text-align: center;
   padding-bottom: 8px;
+  position: relative;
 }
 
 header h1 {
@@ -29,13 +30,10 @@ header h1 {
   font-size: 1.3rem;
 }
 
-header .header-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
 .app-version {
+  position: absolute;
+  top: 0;
+  right: 0;
   font-size: 0.75rem;
   color: #475569;
 }
