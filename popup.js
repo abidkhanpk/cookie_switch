@@ -22,6 +22,11 @@ const exportSiteBtn = document.getElementById('exportSiteBtn');
 const importBackupBtn = document.getElementById('importBackupBtn');
 const exportBackupBtn = document.getElementById('exportBackupBtn');
 const backupStatus = document.getElementById('backupStatus');
+const helpBtn = document.getElementById('helpBtn');
+const helpModal = document.getElementById('helpModal');
+const helpContent = document.getElementById('helpContent');
+const closeHelpBtn = document.getElementById('closeHelpBtn');
+const versionLabel = document.querySelector('.app-version');
 
 let siteProfiles = {};
 let currentSiteKey = null;
@@ -34,12 +39,14 @@ const IMPORT_BUTTON_LABELS = {
   create: 'Get Current Account',
   edit: 'Update from current account'
 };
+let helpLoaded = false;
 
 init();
 
 function init() {
   bindEvents();
   loadProfiles();
+  setVersionLabel();
 }
 
 function bindEvents() {
@@ -111,6 +118,19 @@ function bindEvents() {
   exportSiteBtn.addEventListener('click', () => exportSiteData());
   importBackupBtn.addEventListener('click', () => importFullBackup());
   exportBackupBtn.addEventListener('click', () => exportFullBackup());
+  if (helpBtn) {
+    helpBtn.addEventListener('click', openHelpModal);
+  }
+  if (closeHelpBtn) {
+    closeHelpBtn.addEventListener('click', closeHelpModal);
+  }
+  if (helpModal) {
+    helpModal.addEventListener('click', (event) => {
+      if (event.target === helpModal) {
+        closeHelpModal();
+      }
+    });
+  }
 }
 
 async function loadProfiles() {
@@ -765,6 +785,32 @@ function updateActiveAccountMapping(origin, accountId) {
     },
     () => {}
   );
+}
+
+function setVersionLabel() {
+  if (versionLabel) {
+    versionLabel.textContent = `v${APP_VERSION}`;
+  }
+}
+
+async function openHelpModal() {
+  if (!helpModal) return;
+  helpModal.classList.remove('hidden');
+  if (!helpLoaded && helpContent) {
+    try {
+      const response = await fetch(chrome.runtime.getURL('README.md'));
+      const text = await response.text();
+      helpContent.textContent = text;
+      helpLoaded = true;
+    } catch (error) {
+      helpContent.textContent = 'Unable to load help content.';
+    }
+  }
+}
+
+function closeHelpModal() {
+  if (!helpModal) return;
+  helpModal.classList.add('hidden');
 }
 
 function setRowMeta(row, cookie = {}) {

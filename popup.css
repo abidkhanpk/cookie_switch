@@ -30,12 +30,47 @@ header h1 {
   font-size: 1.3rem;
 }
 
-.app-version {
+.header-actions {
   position: absolute;
   top: 0;
   right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.app-version {
   font-size: 0.75rem;
   color: #475569;
+}
+
+.icon-button {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: #e2e8f0;
+  color: #1e293b;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.icon-button:hover {
+  background: #cbd5f5;
+}
+
+.icon-button.close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 1rem;
 }
 
 header p {
@@ -245,6 +280,53 @@ select {
   flex-direction: column;
   gap: 2px;
   text-align: center;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  z-index: 1000;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-content {
+  position: relative;
+  width: 90%;
+  max-width: 520px;
+  max-height: 80vh;
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.3);
+  overflow: hidden;
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: #0f172a;
+}
+
+.help-content {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow: auto;
+  max-height: calc(80vh - 80px);
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
 }
 
 .chip[data-tooltip]::after,

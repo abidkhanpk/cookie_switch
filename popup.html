@@ -9,7 +9,10 @@
 <body>
   <div class="app">
     <header>
-      <span class="app-version">v1.16.0</span>
+      <div class="header-actions">
+        <span class="app-version"></span>
+        <button id="helpBtn" class="icon-button" title="Help">?</button>
+      </div>
       <h1>Cookie Switch</h1>
       <p>Save cookie sets for any site and swap accounts instantly.</p>
     </header>
@@ -105,6 +108,14 @@
       <span>Created by Abid Khan</span>
       <span>© 2025 All rights reserved</span>
     </footer>
+  </div>
+
+  <div id="helpModal" class="modal hidden">
+    <div class="modal-content">
+      <button id="closeHelpBtn" class="icon-button close" title="Close">×</button>
+      <h3>Help &amp; Documentation</h3>
+      <pre id="helpContent" class="help-content">Loading…</pre>
+    </div>
   </div>
   <script src="popup.js"></script>
 </body>
