@@ -799,8 +799,8 @@ async function openHelpModal() {
   if (!helpLoaded && helpContent) {
     try {
       const response = await fetch(chrome.runtime.getURL('README.md'));
-      const text = await response.text();
-      helpContent.textContent = text;
+      const markdown = await response.text();
+      helpContent.innerHTML = renderMarkdown(markdown);
       helpLoaded = true;
     } catch (error) {
       helpContent.textContent = 'Unable to load help content.';
@@ -811,6 +811,57 @@ async function openHelpModal() {
 function closeHelpModal() {
   if (!helpModal) return;
   helpModal.classList.add('hidden');
+}
+
+function renderMarkdown(md) {
+  const lines = md.split(/\r?\n/);
+  const html = [];
+  let inList = false;
+  const flushList = () => {
+    if (inList) {
+      html.push('</ul>');
+      inList = false;
+    }
+  };
+  lines.forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) {
+      flushList();
+      return;
+    }
+    if (/^###\s+/.test(line)) {
+      flushList();
+      html.push(`<h3>${escapeHtml(line.replace(/^###\s+/, ''))}</h3>`);
+    } else if (/^##\s+/.test(line)) {
+      flushList();
+      html.push(`<h2>${escapeHtml(line.replace(/^##\s+/, ''))}</h2>`);
+    } else if (/^#\s+/.test(line)) {
+      flushList();
+      html.push(`<h1>${escapeHtml(line.replace(/^#\s+/, ''))}</h1>`);
+    } else if (/^[-*]\s+/.test(line)) {
+      if (!inList) {
+        html.push('<ul>');
+        inList = true;
+      }
+      html.push(`<li>${escapeHtml(line.replace(/^[-*]\s+/, ''))}</li>`);
+    } else {
+      flushList();
+      html.push(`<p>${escapeHtml(line)}</p>`);
+    }
+  });
+  flushList();
+  return html.join('');
+}
+
+function escapeHtml(str) {
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  };
+  return str.replace(/[&<>"']/g, (char) => map[char] || char);
 }
 
 function setRowMeta(row, cookie = {}) {

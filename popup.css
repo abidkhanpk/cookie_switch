@@ -318,15 +318,33 @@ select {
 
 .help-content {
   margin: 0;
-  font-size: 0.8rem;
-  line-height: 1.4;
-  white-space: pre-wrap;
+  font-size: 0.85rem;
+  line-height: 1.5;
   overflow: auto;
   max-height: calc(80vh - 80px);
   background: #f8fafc;
   padding: 12px;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
+}
+
+.help-content h1,
+.help-content h2,
+.help-content h3 {
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+  color: #0f172a;
+}
+
+.help-content ul {
+  padding-left: 1.2em;
+}
+
+.help-content code,
+.help-content pre {
+  background: #e2e8f0;
+  padding: 2px 4px;
+  border-radius: 4px;
 }
 
 .chip[data-tooltip]::after,

@@ -8,7 +8,7 @@ Cookie Switch is a Chrome extension that lets you store, manage, and instantly s
 - **One-Click Switching** – Inject the stored cookies and reload matching tabs to move between accounts immediately.
 - **Auto Cookie Capture** – "Get Current Account" reads the live browser cookies (store, partition, same-site, priority, etc.) so sessions are preserved exactly.
 - **Auto Update (optional)** – Mark an account as "Auto update" to keep it synchronized whenever the site mutates its cookies (e.g., refresh tokens).
-- **Import/Export** – Share an individual account, an entire site, or a full workspace backup (including active auto-sync mappings).
+- **Import/Export** – Share an individual account, an entire site, or a full workspace backup (including active auto-update mappings).
 - **Backup & Restore** – Export all sites + accounts to JSON or restore from a teammate's file.
 - **Site Management Tools** – Quickly add/remove origins and see which accounts exist for the current site.
 
