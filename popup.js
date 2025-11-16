@@ -195,7 +195,7 @@ function renderAccounts() {
         const badge = document.createElement('span');
         badge.className = 'chip';
         badge.textContent = 'Auto update';
-        badge.title = 'Auto update cookies is enabled';
+        badge.dataset.tooltip = 'Auto update cookies is enabled';
         titleWrap.appendChild(badge);
       }
 
