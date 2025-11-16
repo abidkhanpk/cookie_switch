@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Cookie Switch",
   "description": "Switch between multiple website accounts by swapping cookie sets.",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "permissions": [
     "storage",
     "cookies",
@@ -18,14 +18,14 @@
     "default_popup": "popup.html",
     "default_title": "Cookie Switch",
     "default_icon": {
-      "16": "icons/refresh-cookie-16.png",
-      "32": "icons/refresh-cookie-32.png"
+      "16": "icons/cookie-switch-16.png",
+      "32": "icons/cookie-switch-32.png"
     }
   },
   "icons": {
-    "16": "icons/refresh-cookie-16.png",
-    "32": "icons/refresh-cookie-32.png",
-    "48": "icons/refresh-cookie-48.png",
-    "128": "icons/refresh-cookie-128.png"
+    "16": "icons/cookie-switch-16.png",
+    "32": "icons/cookie-switch-32.png",
+    "48": "icons/cookie-switch-48.png",
+    "128": "icons/cookie-switch-128.png"
   }
 }

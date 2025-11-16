@@ -194,7 +194,7 @@ function renderAccounts() {
       if (account.autoSync) {
         const badge = document.createElement('span');
         badge.className = 'chip';
-        badge.textContent = 'Auto-sync';
+        badge.textContent = 'Auto update';
         badge.title = 'Auto update cookies is enabled';
         titleWrap.appendChild(badge);
       }

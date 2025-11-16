@@ -218,12 +218,13 @@ select {
 .chip {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: 1px 6px;
   border-radius: 999px;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   border: 1px solid rgba(99, 102, 241, 0.5);
   color: #4338ca;
   background: rgba(129, 140, 248, 0.12);
+  white-space: nowrap;
 }
 
 .table-wrapper {

@@ -18,7 +18,7 @@ Cookie Switch is a Chrome extension that lets you store, manage, and instantly s
 2. Open Chrome and navigate to `chrome://extensions`.
 3. Enable **Developer mode** (toggle in the top-right corner).
 4. Click **Load unpacked** and select the project directory (`cookie_switch`).
-5. The "Cookie Switch" icon (orange arrows around a cookie) should now appear in the toolbar.
+5. The "Cookie Switch" icon should now appear in the toolbar.
 
 Whenever you update the files, revisit `chrome://extensions` and press **Reload** for Cookie Switch.
 
