@@ -11,6 +11,7 @@ const accountsList = document.getElementById('accountsList');
 const accountStatus = document.getElementById('accountStatus');
 const accountFormTitle = document.getElementById('accountFormTitle');
 const accountNameInput = document.getElementById('accountName');
+const autoSyncToggle = document.getElementById('autoSyncToggle');
 const cookiesTableBody = document.querySelector('#cookiesTable tbody');
 const importCookiesBtn = document.getElementById('importCookiesBtn');
 const saveAccountBtn = document.getElementById('saveAccountBtn');
@@ -85,6 +86,7 @@ function bindEvents() {
     if (!confirm('Delete this site and all saved accounts?')) {
       return;
     }
+    const removedKey = currentSiteKey;
     delete siteProfiles[currentSiteKey];
     currentSiteKey = Object.keys(siteProfiles)[0] || null;
     persistProfiles();
@@ -92,6 +94,7 @@ function bindEvents() {
     resetAccountForm();
     renderAccounts();
     displayStatus(siteStatus, 'Site removed.', 'success');
+    updateActiveAccountMapping(removedKey, null);
   });
 
   importCookiesBtn.addEventListener('click', () => importCurrentCookies());
@@ -181,6 +184,12 @@ function renderAccounts() {
       meta.textContent = `${cookieCount} cookies • Updated ${updated}`;
 
       header.appendChild(title);
+      if (account.autoSync) {
+        const badge = document.createElement('span');
+        badge.className = 'chip';
+        badge.textContent = 'Auto-sync';
+        header.appendChild(badge);
+      }
       header.appendChild(meta);
       card.appendChild(header);
 
@@ -227,6 +236,7 @@ function resetAccountForm() {
   editingAccountId = null;
   accountFormTitle.textContent = 'Add Account';
   accountNameInput.value = '';
+  autoSyncToggle.checked = false;
   showCookiePlaceholder();
 }
 
@@ -234,6 +244,7 @@ function populateAccountForm(account) {
   editingAccountId = account.id;
   accountFormTitle.textContent = 'Edit Account';
   accountNameInput.value = account.name;
+  autoSyncToggle.checked = Boolean(account.autoSync);
   setCookiesInForm(account.cookies || []);
 }
 
@@ -326,16 +337,32 @@ function saveAccount() {
     return;
   }
   const now = Date.now();
+  let savedAccountId = editingAccountId;
   if (editingAccountId) {
     const idx = site.accounts.findIndex((a) => a.id === editingAccountId);
     if (idx >= 0) {
-      site.accounts[idx] = { ...site.accounts[idx], name, cookies, updatedAt: now };
+      site.accounts[idx] = { ...site.accounts[idx], name, cookies, autoSync: autoSyncToggle.checked, updatedAt: now };
     }
   } else {
-    site.accounts.push({ id: crypto.randomUUID ? crypto.randomUUID() : `acc-${Date.now()}`, name, cookies, updatedAt: now });
+    const newAccount = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `acc-${Date.now()}`,
+      name,
+      cookies,
+      autoSync: autoSyncToggle.checked,
+      updatedAt: now
+    };
+    site.accounts.push(newAccount);
+    savedAccountId = newAccount.id;
   }
   persistProfiles();
   renderAccounts();
+  if (savedAccountId) {
+    if (autoSyncToggle.checked) {
+      updateActiveAccountMapping(currentSiteKey, savedAccountId);
+    } else if (editingAccountId) {
+      updateActiveAccountMapping(currentSiteKey, null);
+    }
+  }
   resetAccountForm();
   displayStatus(accountStatus, 'Account saved.', 'success');
 }
@@ -399,12 +426,15 @@ function deleteAccount(accountId) {
   if (index === -1) {
     return;
   }
-  site.accounts.splice(index, 1);
+  const [removed] = site.accounts.splice(index, 1);
   persistProfiles();
   renderAccounts();
   displayStatus(accountStatus, 'Account deleted.', 'success');
   if (editingAccountId === accountId) {
     resetAccountForm();
+  }
+  if (removed?.autoSync) {
+    updateActiveAccountMapping(currentSiteKey, null);
   }
 }
 
@@ -539,19 +569,25 @@ async function importSiteData() {
   }
 }
 
-function exportFullBackup() {
+async function exportFullBackup() {
   if (!Object.keys(siteProfiles).length) {
     displayStatus(backupStatus, 'No data to export.', 'info');
     return;
   }
-  const payload = {
-    type: 'cookie-switch/backup',
-    version: APP_VERSION,
-    siteProfiles: serializeAllSites(siteProfiles)
-  };
-  const filename = `cookie-switch-backup-${new Date().toISOString().split('T')[0]}.json`;
-  triggerJsonDownload(filename, payload);
-  displayStatus(backupStatus, 'Full backup exported.', 'success');
+  try {
+    const stored = await chrome.storage.local.get({ activeAccountMap: {} });
+    const payload = {
+      type: 'cookie-switch/backup',
+      version: APP_VERSION,
+      siteProfiles: serializeAllSites(siteProfiles),
+      activeAccountMap: stored.activeAccountMap || {}
+    };
+    const filename = `cookie-switch-backup-${new Date().toISOString().split('T')[0]}.json`;
+    triggerJsonDownload(filename, payload);
+    displayStatus(backupStatus, 'Full backup exported.', 'success');
+  } catch (error) {
+    displayStatus(backupStatus, error.message || 'Unable to export backup.', 'error');
+  }
 }
 
 async function importFullBackup() {
@@ -580,7 +616,10 @@ async function importFullBackup() {
     });
     siteProfiles = restoredProfiles;
     currentSiteKey = Object.keys(siteProfiles)[0] || null;
-    persistProfiles();
+    await chrome.storage.local.set({
+      siteProfiles,
+      activeAccountMap: payload.activeAccountMap || {}
+    });
     renderSiteOptions();
     updateSiteInput();
     renderAccounts();
@@ -692,6 +731,17 @@ function displayStatus(target, message, type) {
   statusTimers.set(target, timeout);
 }
 
+function updateActiveAccountMapping(origin, accountId) {
+  if (!origin) return;
+  chrome.runtime.sendMessage(
+    {
+      type: 'set-active-account',
+      payload: { origin, accountId }
+    },
+    () => {}
+  );
+}
+
 function setRowMeta(row, cookie = {}) {
   row.__meta = cloneCookieMeta(cookie);
 }
@@ -769,7 +819,8 @@ function normalizeCookieForStorage(cookie = {}) {
 function serializeAccount(account = {}) {
   return {
     ...account,
-    cookies: (account.cookies || []).map((cookie) => normalizeCookieForStorage(cookie))
+    cookies: (account.cookies || []).map((cookie) => normalizeCookieForStorage(cookie)),
+    autoSync: Boolean(account.autoSync)
   };
 }
 
@@ -846,6 +897,7 @@ function formatImportedAccount(account = {}) {
   const sanitized = serializeAccount(account);
   return {
     ...sanitized,
+    autoSync: Boolean(account.autoSync),
     id: crypto.randomUUID ? crypto.randomUUID() : `acc-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     updatedAt: Date.now()
   };

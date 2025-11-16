@@ -1,4 +1,11 @@
 const ACTIVE_REQUESTS = new Map();
+let siteProfilesCache = {};
+let activeAccountMap = {};
+const AUTO_SYNC_QUEUE = new Map();
+
+bootstrapCaches();
+chrome.storage.onChanged.addListener(handleStorageChange);
+chrome.cookies.onChanged.addListener(handleCookieChange);
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === 'switch-account') {
@@ -14,6 +21,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     ACTIVE_REQUESTS.set(key, task);
     return true; // Keep the message channel open for async work
+  }
+  if (message?.type === 'set-active-account') {
+    const { origin, accountId } = message.payload || {};
+    setActiveAccount(origin, accountId)
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ error: error.message || 'Unable to mark account active.' }));
+    return true;
   }
   if (message?.type === 'fetch-cookies') {
     handleFetchCookiesRequest(message.payload)
@@ -37,6 +51,7 @@ async function handleSwitchRequest(payload = {}) {
   await clearExistingCookies(domain);
   await applyCookies(origin, cookies);
   await reloadMatchingTabs(origin);
+  await setActiveAccount(origin, payload.accountId);
   return { success: true };
 }
 
@@ -141,6 +156,23 @@ function buildCookieUrl({ domain, secure, path }) {
   return `${protocol}//${cleanDomain || 'localhost'}${safePath}`;
 }
 
+function bootstrapCaches() {
+  chrome.storage.local.get({ siteProfiles: {}, activeAccountMap: {} }, (data) => {
+    siteProfilesCache = data.siteProfiles || {};
+    activeAccountMap = data.activeAccountMap || {};
+  });
+}
+
+function handleStorageChange(changes, area) {
+  if (area !== 'local') return;
+  if (changes.siteProfiles) {
+    siteProfilesCache = changes.siteProfiles.newValue || {};
+  }
+  if (changes.activeAccountMap) {
+    activeAccountMap = changes.activeAccountMap.newValue || {};
+  }
+}
+
 async function handleFetchCookiesRequest(payload = {}) {
   const origin = payload.origin;
   if (!origin) {
@@ -155,21 +187,7 @@ async function handleFetchCookiesRequest(payload = {}) {
     }
   }
   const cookies = await chrome.cookies.getAll(query);
-  return cookies.map((cookie) => ({
-    name: cookie.name,
-    value: cookie.value,
-    domain: cookie.domain,
-    path: cookie.path,
-    secure: cookie.secure,
-    httpOnly: cookie.httpOnly,
-    hostOnly: cookie.hostOnly,
-    expirationDate: cookie.expirationDate,
-    sameSite: cookie.sameSite,
-    priority: cookie.priority,
-    storeId: cookie.storeId,
-    partitionKey: cookie.partitionKey,
-    session: cookie.session
-  }));
+  return cookies.map((cookie) => serializeCookie(cookie));
 }
 
 async function resolveStoreIdFromTab(tabId) {
@@ -179,4 +197,103 @@ async function resolveStoreIdFromTab(tabId) {
   const stores = await chrome.cookies.getAllCookieStores();
   const targetStore = stores.find((store) => Array.isArray(store.tabIds) && store.tabIds.includes(tabId));
   return targetStore ? targetStore.id : null;
+}
+
+async function setActiveAccount(origin, accountId) {
+  if (!origin) {
+    return;
+  }
+  if (!accountId) {
+    const { [origin]: _removed, ...rest } = activeAccountMap;
+    activeAccountMap = rest;
+  } else {
+    activeAccountMap = { ...activeAccountMap, [origin]: { accountId } };
+  }
+  await chrome.storage.local.set({ activeAccountMap });
+}
+
+function handleCookieChange(changeInfo) {
+  const cookie = changeInfo.cookie;
+  if (!cookie) return;
+  const affectedOrigins = Object.keys(siteProfilesCache).filter((origin) => {
+    try {
+      const siteHost = new URL(origin).hostname;
+      return matchesDomain(siteHost, cookie.domain);
+    } catch (err) {
+      return false;
+    }
+  });
+  affectedOrigins.forEach((origin) => {
+    const active = activeAccountMap[origin];
+    if (!active) return;
+    const site = siteProfilesCache[origin];
+    const account = site?.accounts?.find((acc) => acc.id === active.accountId);
+    if (!account || !account.autoSync) return;
+    scheduleAutoSync(origin, account.id, cookie.storeId, cookie.domain);
+  });
+}
+
+function matchesDomain(hostname, cookieDomain = '') {
+  const domain = cookieDomain.replace(/^\./, '').toLowerCase();
+  const host = hostname.toLowerCase();
+  if (!domain) return false;
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
+function scheduleAutoSync(origin, accountId, storeId, cookieDomain) {
+  const key = `${origin}::${accountId}::${storeId || 'default'}`;
+  if (AUTO_SYNC_QUEUE.has(key)) {
+    return;
+  }
+  const job = autoSyncAccount(origin, accountId, storeId, cookieDomain)
+    .catch(() => {})
+    .finally(() => {
+      AUTO_SYNC_QUEUE.delete(key);
+    });
+  AUTO_SYNC_QUEUE.set(key, job);
+}
+
+async function autoSyncAccount(origin, accountId, storeId, cookieDomain) {
+  const site = siteProfilesCache[origin];
+  if (!site) return;
+  const accountIndex = site.accounts?.findIndex((acc) => acc.id === accountId);
+  if (accountIndex === undefined || accountIndex < 0) return;
+  const domain = cookieDomain?.replace(/^\./, '') || new URL(origin).hostname;
+  const query = { domain };
+  if (storeId) {
+    query.storeId = storeId;
+  }
+  const cookies = await chrome.cookies.getAll(query);
+  const normalized = cookies.map((cookie) => serializeCookie(cookie));
+  site.accounts[accountIndex] = {
+    ...site.accounts[accountIndex],
+    cookies: normalized,
+    updatedAt: Date.now()
+  };
+  siteProfilesCache[origin] = site;
+  await chrome.storage.local.set({ siteProfiles: siteProfilesCache });
+}
+
+function serializeCookie(cookie) {
+  const normalized = {
+    name: cookie.name,
+    value: cookie.value,
+    domain: cookie.domain,
+    path: cookie.path || '/',
+    secure: cookie.secure,
+    httpOnly: cookie.httpOnly,
+    hostOnly: cookie.hostOnly,
+    expirationDate: cookie.expirationDate,
+    sameSite: cookie.sameSite,
+    priority: cookie.priority,
+    storeId: cookie.storeId,
+    partitionKey: cookie.partitionKey,
+    session: cookie.session
+  };
+  Object.keys(normalized).forEach((key) => {
+    if (normalized[key] === undefined) {
+      delete normalized[key];
+    }
+  });
+  return normalized;
 }

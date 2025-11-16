@@ -73,6 +73,25 @@ header p {
   color: #475569;
 }
 
+.checkbox-field {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.checkbox-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.checkbox-inline input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
 input[type="text"] {
   padding: 10px;
   border-radius: 10px;
@@ -176,6 +195,17 @@ select {
 
 .account-card small {
   color: #475569;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  color: #4338ca;
+  background: rgba(129, 140, 248, 0.12);
 }
 
 .table-wrapper {
