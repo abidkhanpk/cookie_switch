@@ -120,6 +120,14 @@ button.danger.ghost {
   justify-content: flex-end;
   gap: 8px;
 }
+.actions.wrap {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 6px;
+}
+.secondary-actions {
+  justify-content: flex-start;
+}
 
 .site-select {
   display: flex;
@@ -211,6 +219,11 @@ select {
   text-align: center;
   padding: 12px;
   color: #94a3b8;
+}
+.hint {
+  margin: 0;
+  color: #475569;
+  font-size: 0.85rem;
 }
 
 .toggle {

@@ -33,6 +33,10 @@
         <button id="saveSiteBtn">Save Site</button>
         <button id="deleteSiteBtn" class="danger ghost">Delete Site</button>
       </div>
+      <div class="actions wrap secondary-actions">
+        <button id="importSiteBtn" class="ghost">Import Site</button>
+        <button id="exportSiteBtn" class="ghost">Export Site</button>
+      </div>
     </section>
 
     <section class="card" id="accountsPanel">
@@ -74,9 +78,24 @@
           <tbody></tbody>
         </table>
       </div>
-      <div class="actions">
+      <div class="actions wrap">
+        <button id="importAccountBtn" class="ghost">Import Account</button>
         <button id="resetAccountForm" class="ghost">Reset</button>
         <button id="saveAccountBtn">Save Account</button>
+      </div>
+    </section>
+
+    <section class="card" id="backupPanel">
+      <div class="section-header">
+        <h2>Backup &amp; Restore</h2>
+        <div class="status" id="backupStatus"></div>
+      </div>
+      <p class="hint">
+        Export/import the selected site, a single account, or full backup files to share setups between teammates.
+      </p>
+      <div class="actions wrap">
+        <button id="importBackupBtn" class="ghost danger">Restore Full Backup</button>
+        <button id="exportBackupBtn">Export Full Backup</button>
       </div>
     </section>
   </div>

@@ -16,11 +16,18 @@ const addCookieRowBtn = document.getElementById('addCookieRowBtn');
 const importCookiesBtn = document.getElementById('importCookiesBtn');
 const saveAccountBtn = document.getElementById('saveAccountBtn');
 const resetAccountBtn = document.getElementById('resetAccountForm');
+const importAccountBtn = document.getElementById('importAccountBtn');
+const importSiteBtn = document.getElementById('importSiteBtn');
+const exportSiteBtn = document.getElementById('exportSiteBtn');
+const importBackupBtn = document.getElementById('importBackupBtn');
+const exportBackupBtn = document.getElementById('exportBackupBtn');
+const backupStatus = document.getElementById('backupStatus');
 
 let siteProfiles = {};
 let currentSiteKey = null;
 let editingAccountId = null;
 const statusTimers = new WeakMap();
+const APP_VERSION = chrome.runtime.getManifest().version || '1.0.0';
 
 init();
 
@@ -92,6 +99,11 @@ function bindEvents() {
 
   saveAccountBtn.addEventListener('click', () => saveAccount());
   resetAccountBtn.addEventListener('click', () => resetAccountForm());
+  importAccountBtn.addEventListener('click', () => importAccountFromFile());
+  importSiteBtn.addEventListener('click', () => importSiteData());
+  exportSiteBtn.addEventListener('click', () => exportSiteData());
+  importBackupBtn.addEventListener('click', () => importFullBackup());
+  exportBackupBtn.addEventListener('click', () => exportFullBackup());
 }
 
 async function loadProfiles() {
@@ -185,6 +197,11 @@ function renderAccounts() {
       editBtn.className = 'ghost';
       editBtn.addEventListener('click', () => populateAccountForm(account));
 
+      const exportBtn = document.createElement('button');
+      exportBtn.textContent = 'Export';
+      exportBtn.className = 'ghost';
+      exportBtn.addEventListener('click', () => exportAccount(account));
+
       const deleteBtn = document.createElement('button');
       deleteBtn.textContent = 'Delete';
       deleteBtn.className = 'ghost danger';
@@ -192,6 +209,7 @@ function renderAccounts() {
 
       actions.appendChild(switchBtn);
       actions.appendChild(editBtn);
+      actions.appendChild(exportBtn);
       actions.appendChild(deleteBtn);
       card.appendChild(actions);
 
@@ -398,6 +416,151 @@ function applyAccount(account) {
   );
 }
 
+function exportAccount(account) {
+  if (!currentSiteKey) {
+    displayStatus(accountStatus, 'Select a site before exporting.', 'error');
+    return;
+  }
+  const payload = {
+    type: 'cookie-switch/account',
+    version: APP_VERSION,
+    site: currentSiteKey,
+    account
+  };
+  const filename = `cookie-switch-account-${slugify(account.name || 'account')}.json`;
+  triggerJsonDownload(filename, payload);
+  displayStatus(accountStatus, `Exported ${account.name || 'account'}.`, 'success');
+}
+
+async function importAccountFromFile() {
+  try {
+    const file = await pickJsonFile();
+    if (!file) {
+      return;
+    }
+    const payload = file.data;
+    if (!payload || payload.type !== 'cookie-switch/account' || !payload.account) {
+      throw new Error('Selected file is not a Cookie Switch account export.');
+    }
+    const importedSite = payload.site ? normalizeOrigin(payload.site) : null;
+    const targetSiteKey = currentSiteKey || importedSite;
+    if (!targetSiteKey) {
+      throw new Error('Select or create a site before importing an account.');
+    }
+    if (!siteProfiles[targetSiteKey]) {
+      siteProfiles[targetSiteKey] = { origin: targetSiteKey, accounts: [] };
+    }
+    const site = siteProfiles[targetSiteKey];
+    const newAccount = formatImportedAccount(payload.account);
+    site.accounts.push(newAccount);
+    currentSiteKey = targetSiteKey;
+    persistProfiles();
+    renderSiteOptions();
+    renderAccounts();
+    displayStatus(accountStatus, `Imported ${newAccount.name || 'account'}.`, 'success');
+  } catch (error) {
+    displayStatus(accountStatus, error.message || 'Unable to import account.', 'error');
+  }
+}
+
+function exportSiteData() {
+  if (!currentSiteKey || !siteProfiles[currentSiteKey]) {
+    displayStatus(siteStatus, 'Select a site to export.', 'error');
+    return;
+  }
+  const payload = {
+    type: 'cookie-switch/site',
+    version: APP_VERSION,
+    site: siteProfiles[currentSiteKey]
+  };
+  const filename = `cookie-switch-site-${slugify(new URL(currentSiteKey).hostname)}.json`;
+  triggerJsonDownload(filename, payload);
+  displayStatus(siteStatus, 'Site exported.', 'success');
+}
+
+async function importSiteData() {
+  try {
+    const file = await pickJsonFile();
+    if (!file) {
+      return;
+    }
+    const payload = file.data;
+    if (!payload || payload.type !== 'cookie-switch/site' || !payload.site) {
+      throw new Error('Selected file is not a Cookie Switch site export.');
+    }
+    const targetOrigin = normalizeOrigin(payload.site.origin || payload.site.url || payload.site);
+    if (!targetOrigin) {
+      throw new Error('Site origin missing from file.');
+    }
+    if (siteProfiles[targetOrigin] && !confirm('Site already exists. Replace it with the imported data?')) {
+      return;
+    }
+    siteProfiles[targetOrigin] = {
+      origin: targetOrigin,
+      accounts: (payload.site.accounts || []).map((account) => formatImportedAccount(account))
+    };
+    currentSiteKey = targetOrigin;
+    persistProfiles();
+    renderSiteOptions();
+    updateSiteInput();
+    renderAccounts();
+    displayStatus(siteStatus, `Imported ${targetOrigin}.`, 'success');
+  } catch (error) {
+    displayStatus(siteStatus, error.message || 'Unable to import site.', 'error');
+  }
+}
+
+function exportFullBackup() {
+  if (!Object.keys(siteProfiles).length) {
+    displayStatus(backupStatus, 'No data to export.', 'info');
+    return;
+  }
+  const payload = {
+    type: 'cookie-switch/backup',
+    version: APP_VERSION,
+    siteProfiles
+  };
+  const filename = `cookie-switch-backup-${new Date().toISOString().split('T')[0]}.json`;
+  triggerJsonDownload(filename, payload);
+  displayStatus(backupStatus, 'Full backup exported.', 'success');
+}
+
+async function importFullBackup() {
+  try {
+    const file = await pickJsonFile();
+    if (!file) {
+      return;
+    }
+    if (!confirm('Restoring a backup will replace all saved sites and accounts. Continue?')) {
+      return;
+    }
+    const payload = file.data;
+    if (!payload || payload.type !== 'cookie-switch/backup' || typeof payload.siteProfiles !== 'object') {
+      throw new Error('Selected file is not a Cookie Switch backup.');
+    }
+    const restoredProfiles = {};
+    Object.entries(payload.siteProfiles || {}).forEach(([origin, site]) => {
+      const key = normalizeOrigin(site?.origin || origin);
+      if (!key) {
+        return;
+      }
+      restoredProfiles[key] = {
+        origin: key,
+        accounts: (site.accounts || []).map((account) => formatImportedAccount(account))
+      };
+    });
+    siteProfiles = restoredProfiles;
+    currentSiteKey = Object.keys(siteProfiles)[0] || null;
+    persistProfiles();
+    renderSiteOptions();
+    updateSiteInput();
+    renderAccounts();
+    displayStatus(backupStatus, 'Backup restored.', 'success');
+  } catch (error) {
+    displayStatus(backupStatus, error.message || 'Unable to restore backup.', 'error');
+  }
+}
+
 function importCurrentCookies() {
   if (!currentSiteKey) {
     displayStatus(accountStatus, 'Save or select a site first.', 'error');
@@ -476,4 +639,63 @@ function displayStatus(target, message, type) {
     statusTimers.delete(target);
   }, 5000);
   statusTimers.set(target, timeout);
+}
+
+function triggerJsonDownload(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function pickJsonFile() {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.addEventListener('change', () => {
+      if (!input.files || !input.files.length) {
+        document.body.removeChild(input);
+        resolve(null);
+        return;
+      }
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        document.body.removeChild(input);
+        try {
+          const data = JSON.parse(reader.result);
+          resolve({ data, name: file.name });
+        } catch (error) {
+          reject(new Error('Invalid JSON file.'));
+        }
+      };
+      reader.onerror = () => {
+        document.body.removeChild(input);
+        reject(reader.error || new Error('Failed to read file.'));
+      };
+      reader.readAsText(file);
+    });
+    input.click();
+  });
+}
+
+function slugify(value) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'data';
+}
+
+function formatImportedAccount(account = {}) {
+  return {
+    ...account,
+    id: crypto.randomUUID ? crypto.randomUUID() : `acc-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    updatedAt: Date.now()
+  };
 }
