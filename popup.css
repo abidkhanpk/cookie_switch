@@ -174,17 +174,20 @@ select {
 
 .account-card {
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: linear-gradient(135deg, rgba(14, 116, 144, 0.09), rgba(59, 7, 100, 0.04));
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.06), rgba(59, 7, 100, 0.02));
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .account-card.active {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+  border-color: #4338ca;
+  box-shadow: 0 8px 25px rgba(79, 70, 229, 0.2);
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(99, 102, 241, 0.2));
 }
 
 .account-card-header {
@@ -212,14 +215,15 @@ select {
   color: #475569;
 }
 
-.auto-sync-indicator {
-  font-size: 0.85rem;
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  border: 1px solid rgba(99, 102, 241, 0.5);
   color: #4338ca;
-  border-radius: 50%;
-  border: 1px solid rgba(99, 102, 241, 0.4);
-  padding: 2px 6px;
-  line-height: 1;
-  cursor: default;
+  background: rgba(129, 140, 248, 0.12);
 }
 
 .table-wrapper {

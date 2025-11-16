@@ -2,6 +2,7 @@ const ACTIVE_REQUESTS = new Map();
 let siteProfilesCache = {};
 let activeAccountMap = {};
 const AUTO_SYNC_QUEUE = new Map();
+const AUTO_SYNC_SUSPEND = new Set();
 
 bootstrapCaches();
 chrome.storage.onChanged.addListener(handleStorageChange);
@@ -48,10 +49,15 @@ async function handleSwitchRequest(payload = {}) {
   }
   const url = new URL(origin);
   const domain = url.hostname;
-  await clearExistingCookies(domain);
-  await applyCookies(origin, cookies);
-  await reloadMatchingTabs(origin);
-  await setActiveAccount(origin, payload.accountId);
+  AUTO_SYNC_SUSPEND.add(origin);
+  try {
+    await clearExistingCookies(domain);
+    await applyCookies(origin, cookies);
+    await reloadMatchingTabs(origin);
+    await setActiveAccount(origin, payload.accountId);
+  } finally {
+    AUTO_SYNC_SUSPEND.delete(origin);
+  }
   return { success: true };
 }
 
@@ -214,7 +220,7 @@ async function setActiveAccount(origin, accountId) {
 
 function handleCookieChange(changeInfo) {
   const cookie = changeInfo.cookie;
-  if (!cookie) return;
+  if (!cookie || changeInfo.removed) return;
   const affectedOrigins = Object.keys(siteProfilesCache).filter((origin) => {
     try {
       const siteHost = new URL(origin).hostname;
@@ -224,6 +230,9 @@ function handleCookieChange(changeInfo) {
     }
   });
   affectedOrigins.forEach((origin) => {
+    if (AUTO_SYNC_SUSPEND.has(origin)) {
+      return;
+    }
     const active = activeAccountMap[origin];
     if (!active) return;
     const site = siteProfilesCache[origin];
@@ -258,7 +267,8 @@ async function autoSyncAccount(origin, accountId, storeId) {
   if (!site) return;
   const accountIndex = site.accounts?.findIndex((acc) => acc.id === accountId);
   if (accountIndex === undefined || accountIndex < 0) return;
-  const query = { url: origin };
+  const host = new URL(origin).hostname;
+  const query = { domain: host };
   if (storeId) {
     query.storeId = storeId;
   }

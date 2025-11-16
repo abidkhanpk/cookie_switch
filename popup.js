@@ -99,7 +99,6 @@ function bindEvents() {
     resetAccountForm();
     renderAccounts();
     displayStatus(siteStatus, 'Site removed.', 'success');
-    delete activeAccountMap[removedKey];
     updateActiveAccountMapping(removedKey, null);
   });
 
@@ -194,8 +193,8 @@ function renderAccounts() {
       titleWrap.appendChild(title);
       if (account.autoSync) {
         const badge = document.createElement('span');
-        badge.className = 'auto-sync-indicator';
-        badge.textContent = '⟳';
+        badge.className = 'chip';
+        badge.textContent = 'Auto-sync';
         badge.title = 'Auto update cookies is enabled';
         titleWrap.appendChild(badge);
       }
@@ -380,14 +379,6 @@ function saveAccount() {
   }
   persistProfiles();
   renderAccounts();
-  if (
-    editingAccountId &&
-    !autoSyncToggle.checked &&
-    activeAccountMap[currentSiteKey]?.accountId === editingAccountId
-  ) {
-    delete activeAccountMap[currentSiteKey];
-    updateActiveAccountMapping(currentSiteKey, null);
-  }
   resetAccountForm();
   displayStatus(accountStatus, 'Account saved.', 'success');
 }
@@ -459,7 +450,6 @@ function deleteAccount(accountId) {
     resetAccountForm();
   }
   if (activeAccountMap[currentSiteKey]?.accountId === accountId) {
-    delete activeAccountMap[currentSiteKey];
     updateActiveAccountMapping(currentSiteKey, null);
   }
 }
@@ -489,11 +479,7 @@ function applyAccount(account) {
         return;
       }
       displayStatus(accountStatus, `Applied ${account.name} cookies.`, 'success');
-      activeAccountMap = {
-        ...activeAccountMap,
-        [currentSiteKey]: { accountId: account.id }
-      };
-      renderAccounts();
+      updateActiveAccountMapping(currentSiteKey, account.id);
     }
   );
 }
@@ -765,6 +751,13 @@ function displayStatus(target, message, type) {
 
 function updateActiveAccountMapping(origin, accountId) {
   if (!origin) return;
+  if (accountId) {
+    activeAccountMap = { ...activeAccountMap, [origin]: { accountId } };
+  } else {
+    const { [origin]: _removed, ...rest } = activeAccountMap;
+    activeAccountMap = rest;
+  }
+  renderAccounts();
   chrome.runtime.sendMessage(
     {
       type: 'set-active-account',
