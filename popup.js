@@ -26,9 +26,14 @@ const backupStatus = document.getElementById('backupStatus');
 let siteProfiles = {};
 let currentSiteKey = null;
 let editingAccountId = null;
+let activeAccountMap = {};
 const statusTimers = new WeakMap();
 const APP_VERSION = chrome.runtime.getManifest().version || '1.0.0';
 const COOKIE_PLACEHOLDER_TEXT = 'Use \"Get Current Account\" to capture cookies.';
+const IMPORT_BUTTON_LABELS = {
+  create: 'Get Current Account',
+  edit: 'Update from current account'
+};
 
 init();
 
@@ -94,6 +99,7 @@ function bindEvents() {
     resetAccountForm();
     renderAccounts();
     displayStatus(siteStatus, 'Site removed.', 'success');
+    delete activeAccountMap[removedKey];
     updateActiveAccountMapping(removedKey, null);
   });
 
@@ -109,8 +115,9 @@ function bindEvents() {
 }
 
 async function loadProfiles() {
-  const stored = await chrome.storage.local.get({ siteProfiles: {} });
+  const stored = await chrome.storage.local.get({ siteProfiles: {}, activeAccountMap: {} });
   siteProfiles = stored.siteProfiles || {};
+  activeAccountMap = stored.activeAccountMap || {};
   currentSiteKey = currentSiteKey || Object.keys(siteProfiles)[0] || null;
   renderSiteOptions();
   updateSiteInput();
@@ -171,6 +178,10 @@ function renderAccounts() {
     .forEach((account) => {
       const card = document.createElement('div');
       card.className = 'account-card';
+      const isActive = activeAccountMap[currentSiteKey]?.accountId === account.id;
+      if (isActive) {
+        card.classList.add('active');
+      }
 
       const header = document.createElement('div');
       header.className = 'account-card-header';
@@ -178,18 +189,23 @@ function renderAccounts() {
       const title = document.createElement('strong');
       title.textContent = account.name;
 
+      const titleWrap = document.createElement('div');
+      titleWrap.className = 'account-card-title';
+      titleWrap.appendChild(title);
+      if (account.autoSync) {
+        const badge = document.createElement('span');
+        badge.className = 'auto-sync-indicator';
+        badge.textContent = '⟳';
+        badge.title = 'Auto update cookies is enabled';
+        titleWrap.appendChild(badge);
+      }
+
       const meta = document.createElement('small');
       const cookieCount = account.cookies?.length || 0;
       const updated = account.updatedAt ? new Date(account.updatedAt).toLocaleString() : 'Never';
       meta.textContent = `${cookieCount} cookies • Updated ${updated}`;
 
-      header.appendChild(title);
-      if (account.autoSync) {
-        const badge = document.createElement('span');
-        badge.className = 'chip';
-        badge.textContent = 'Auto-sync';
-        header.appendChild(badge);
-      }
+      header.appendChild(titleWrap);
       header.appendChild(meta);
       card.appendChild(header);
 
@@ -237,6 +253,7 @@ function resetAccountForm() {
   accountFormTitle.textContent = 'Add Account';
   accountNameInput.value = '';
   autoSyncToggle.checked = false;
+  setImportButtonLabel();
   showCookiePlaceholder();
 }
 
@@ -245,6 +262,7 @@ function populateAccountForm(account) {
   accountFormTitle.textContent = 'Edit Account';
   accountNameInput.value = account.name;
   autoSyncToggle.checked = Boolean(account.autoSync);
+  setImportButtonLabel();
   setCookiesInForm(account.cookies || []);
 }
 
@@ -316,6 +334,14 @@ function hasCookiePlaceholder() {
   return Boolean(cookiesTableBody.querySelector('.cookie-placeholder-row'));
 }
 
+function setImportButtonLabel() {
+  const mode = editingAccountId ? 'edit' : 'create';
+  importCookiesBtn.textContent = IMPORT_BUTTON_LABELS[mode];
+  importCookiesBtn.title = mode === 'edit'
+    ? 'Replace this account\'s cookies with those from the active tab'
+    : 'Capture cookies from the active tab';
+}
+
 function saveAccount() {
   if (!currentSiteKey) {
     displayStatus(accountStatus, 'Save a site before creating accounts.', 'error');
@@ -337,7 +363,6 @@ function saveAccount() {
     return;
   }
   const now = Date.now();
-  let savedAccountId = editingAccountId;
   if (editingAccountId) {
     const idx = site.accounts.findIndex((a) => a.id === editingAccountId);
     if (idx >= 0) {
@@ -352,16 +377,16 @@ function saveAccount() {
       updatedAt: now
     };
     site.accounts.push(newAccount);
-    savedAccountId = newAccount.id;
   }
   persistProfiles();
   renderAccounts();
-  if (savedAccountId) {
-    if (autoSyncToggle.checked) {
-      updateActiveAccountMapping(currentSiteKey, savedAccountId);
-    } else if (editingAccountId) {
-      updateActiveAccountMapping(currentSiteKey, null);
-    }
+  if (
+    editingAccountId &&
+    !autoSyncToggle.checked &&
+    activeAccountMap[currentSiteKey]?.accountId === editingAccountId
+  ) {
+    delete activeAccountMap[currentSiteKey];
+    updateActiveAccountMapping(currentSiteKey, null);
   }
   resetAccountForm();
   displayStatus(accountStatus, 'Account saved.', 'success');
@@ -433,7 +458,8 @@ function deleteAccount(accountId) {
   if (editingAccountId === accountId) {
     resetAccountForm();
   }
-  if (removed?.autoSync) {
+  if (activeAccountMap[currentSiteKey]?.accountId === accountId) {
+    delete activeAccountMap[currentSiteKey];
     updateActiveAccountMapping(currentSiteKey, null);
   }
 }
@@ -463,6 +489,11 @@ function applyAccount(account) {
         return;
       }
       displayStatus(accountStatus, `Applied ${account.name} cookies.`, 'success');
+      activeAccountMap = {
+        ...activeAccountMap,
+        [currentSiteKey]: { accountId: account.id }
+      };
+      renderAccounts();
     }
   );
 }
@@ -616,9 +647,10 @@ async function importFullBackup() {
     });
     siteProfiles = restoredProfiles;
     currentSiteKey = Object.keys(siteProfiles)[0] || null;
+    activeAccountMap = payload.activeAccountMap || {};
     await chrome.storage.local.set({
       siteProfiles,
-      activeAccountMap: payload.activeAccountMap || {}
+      activeAccountMap
     });
     renderSiteOptions();
     updateSiteInput();

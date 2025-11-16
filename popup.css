@@ -182,10 +182,25 @@ select {
   background: linear-gradient(135deg, rgba(14, 116, 144, 0.09), rgba(59, 7, 100, 0.04));
 }
 
+.account-card.active {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+}
+
 .account-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.account-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.account-card.active .account-card-title strong {
+  color: #1d4ed8;
 }
 
 .account-card-actions {
@@ -197,15 +212,14 @@ select {
   color: #475569;
 }
 
-.chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  border: 1px solid rgba(99, 102, 241, 0.5);
+.auto-sync-indicator {
+  font-size: 0.85rem;
   color: #4338ca;
-  background: rgba(129, 140, 248, 0.12);
+  border-radius: 50%;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  padding: 2px 6px;
+  line-height: 1;
+  cursor: default;
 }
 
 .table-wrapper {
