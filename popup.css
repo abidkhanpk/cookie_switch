@@ -29,6 +29,17 @@ header h1 {
   font-size: 1.3rem;
 }
 
+header .header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.app-version {
+  font-size: 0.75rem;
+  color: #475569;
+}
+
 header p {
   margin: 0;
   color: #475569;
