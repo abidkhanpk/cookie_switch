@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cookie Switch</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Cookie Switch</h1>
+      <p>Save cookie sets for any site and swap accounts instantly.</p>
+    </header>
+
+    <section class="card" id="siteManager">
+      <div class="section-header">
+        <h2>Website</h2>
+        <div class="status" id="siteStatus"></div>
+      </div>
+      <label class="field">
+        <span>Saved sites</span>
+        <div class="site-select">
+          <select id="siteSelect"></select>
+          <button id="newSiteBtn" class="ghost" title="Create a new site profile">New</button>
+        </div>
+      </label>
+      <label class="field">
+        <span>Site URL</span>
+        <input type="text" id="siteInput" placeholder="https://example.com" />
+      </label>
+      <div class="actions">
+        <button id="saveSiteBtn">Save Site</button>
+        <button id="deleteSiteBtn" class="danger ghost">Delete Site</button>
+      </div>
+    </section>
+
+    <section class="card" id="accountsPanel">
+      <div class="section-header">
+        <h2>Accounts</h2>
+        <div class="status" id="accountStatus"></div>
+      </div>
+      <div id="accountsList" class="account-list"></div>
+    </section>
+
+    <section class="card" id="accountEditor">
+      <div class="section-header">
+        <h2 id="accountFormTitle">Add Account</h2>
+      </div>
+      <label class="field">
+        <span>Account name</span>
+        <input type="text" id="accountName" placeholder="e.g. Marketing Team" />
+      </label>
+      <div class="cookie-table-header">
+        <span>Cookies</span>
+        <div class="cookie-actions">
+          <button id="importCookiesBtn" class="ghost" title="Capture cookies from the active tab">Get Current Account</button>
+          <button id="addCookieRowBtn" class="ghost">Add Cookie</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table id="cookiesTable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Value</th>
+              <th>Domain</th>
+              <th>Path</th>
+              <th>Secure</th>
+              <th>HTTP Only</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button id="resetAccountForm" class="ghost">Reset</button>
+        <button id="saveAccountBtn">Save Account</button>
+      </div>
+    </section>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
