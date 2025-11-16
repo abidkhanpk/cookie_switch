@@ -831,22 +831,22 @@ function renderMarkdown(md) {
     }
     if (/^###\s+/.test(line)) {
       flushList();
-      html.push(`<h3>${escapeHtml(line.replace(/^###\s+/, ''))}</h3>`);
+      html.push(`<h3>${formatInline(line.replace(/^###\s+/, ''))}</h3>`);
     } else if (/^##\s+/.test(line)) {
       flushList();
-      html.push(`<h2>${escapeHtml(line.replace(/^##\s+/, ''))}</h2>`);
+      html.push(`<h2>${formatInline(line.replace(/^##\s+/, ''))}</h2>`);
     } else if (/^#\s+/.test(line)) {
       flushList();
-      html.push(`<h1>${escapeHtml(line.replace(/^#\s+/, ''))}</h1>`);
+      html.push(`<h1>${formatInline(line.replace(/^#\s+/, ''))}</h1>`);
     } else if (/^[-*]\s+/.test(line)) {
       if (!inList) {
         html.push('<ul>');
         inList = true;
       }
-      html.push(`<li>${escapeHtml(line.replace(/^[-*]\s+/, ''))}</li>`);
+      html.push(`<li>${formatInline(line.replace(/^[-*]\s+/, ''))}</li>`);
     } else {
       flushList();
-      html.push(`<p>${escapeHtml(line)}</p>`);
+      html.push(`<p>${formatInline(line)}</p>`);
     }
   });
   flushList();
@@ -862,6 +862,11 @@ function escapeHtml(str) {
     "'": '&#39;'
   };
   return str.replace(/[&<>"']/g, (char) => map[char] || char);
+}
+
+function formatInline(str) {
+  const escaped = escapeHtml(str);
+  return escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 }
 
 function setRowMeta(row, cookie = {}) {
