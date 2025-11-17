@@ -30,7 +30,9 @@ const settingsBtn = document.getElementById('settingsBtn');
 const settingsModal = document.getElementById('settingsModal');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+const downloadLatestLink = document.getElementById('downloadLatestLink');
 const updateStatus = document.getElementById('updateStatus');
+const updateInstructions = document.getElementById('updateInstructions');
 const versionLabel = document.querySelector('.app-version');
 
 let siteProfiles = {};
@@ -898,6 +900,12 @@ function openSettingsModal() {
   if (updateStatus) {
     updateStatus.textContent = '';
   }
+  if (downloadLatestLink) {
+    downloadLatestLink.classList.add('hidden');
+  }
+  if (updateInstructions) {
+    updateInstructions.classList.add('hidden');
+  }
 }
 
 function closeSettingsModal() {
@@ -918,7 +926,13 @@ async function checkForUpdates() {
     const remoteVersion = data.version || 'unknown';
     const comparison = compareVersions(remoteVersion, APP_VERSION);
     if (comparison > 0) {
-      updateStatus.innerHTML = `New version <strong>${remoteVersion}</strong> is available. Download the ZIP and reload the extension.`;
+      updateStatus.innerHTML = `New version <strong>${remoteVersion}</strong> is available.`;
+      if (downloadLatestLink) {
+        downloadLatestLink.classList.remove('hidden');
+      }
+      if (updateInstructions) {
+        updateInstructions.classList.remove('hidden');
+      }
     } else if (comparison === 0) {
       updateStatus.textContent = 'You already have the latest version installed.';
     } else {

@@ -340,6 +340,10 @@ select {
   text-align: center;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .modal {
   position: fixed;
   inset: 0;

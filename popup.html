@@ -125,16 +125,14 @@
       <h3>Settings</h3>
       <div class="help-content">
         <h4>Auto Update</h4>
-        <p>
-          Chrome prevents unpacked extensions from silently updating themselves. The safest approach is to
-          download the latest release and reload it manually. Use the checker below to learn if a newer
-          version exists.
-        </p>
         <div class="actions wrap start">
           <button id="checkUpdatesBtn">Check for updates</button>
-          <a id="downloadLatestLink" class="ghost" href="https://github.com/abidkhanpk/cookie_switch/archive/refs/heads/master.zip" target="_blank" rel="noreferrer">Download latest ZIP</a>
+          <a id="downloadLatestLink" class="ghost hidden" href="https://github.com/abidkhanpk/cookie_switch/archive/refs/heads/master.zip" target="_blank" rel="noreferrer">Download latest ZIP</a>
         </div>
         <p id="updateStatus" class="status"></p>
+        <p id="updateInstructions" class="status hidden">
+          Download the ZIP, unzip it, and use <strong>chrome://extensions</strong> → Reload to apply the update.
+        </p>
       </div>
     </div>
   </div>
