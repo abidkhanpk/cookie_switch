@@ -40,6 +40,9 @@ header h1 {
 }
 
 .app-version {
+  position: absolute;
+  top: 0;
+  left: 0;
   font-size: 0.75rem;
   color: #475569;
 }
@@ -72,6 +75,13 @@ header h1 {
   width: 28px;
   height: 28px;
   border-radius: 50%;
+  font-size: 1rem;
+  line-height: 28px;
+}
+
+.icon-button.settings {
+  width: 28px;
+  height: 28px;
   font-size: 1rem;
   line-height: 28px;
 }

@@ -47,7 +47,12 @@ Whenever you update the files, revisit `chrome://extensions` and press **Reload*
 - **Site Export** – Use the site-level buttons to export/import all accounts for a specific origin.
 - **Full Backup** – The "All Sites Backup" card can back up or restore everything, including the `activeAccountMap` that ties origins to auto-update accounts.
 
-### 6. Deleting Data
+### 6. Settings & Manual Updates
+- Click the **⚙** button in the popup header to open the settings dialog.
+- Use **Check for updates** to compare your local version with the latest commit on GitHub (master branch). If a newer version exists, download the ZIP and reload the unpacked extension via `chrome://extensions`.
+- Chrome does not allow unpacked extensions to self-update, so manual reloads remain the safest and most transparent approach.
+
+### 7. Deleting Data
 - Removing a site drops all associated accounts and clears auto-update mappings for that origin.
 - Deleting an account that was auto-update enabled also removes its active mapping.
 

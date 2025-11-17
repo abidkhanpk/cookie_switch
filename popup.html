@@ -9,8 +9,9 @@
 <body>
   <div class="app">
     <header>
+      <span class="app-version"></span>
       <div class="header-actions">
-        <span class="app-version"></span>
+        <button id="settingsBtn" class="icon-button settings" data-tooltip="Settings">⚙</button>
         <button id="helpBtn" class="icon-button" data-tooltip="Open help">?</button>
       </div>
       <h1>Cookie Switch</h1>
@@ -115,6 +116,26 @@
       <button id="closeHelpBtn" class="icon-button close" title="Close">×</button>
       <h3>Help &amp; Documentation</h3>
       <div id="helpContent" class="help-content">Loading…</div>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-content">
+      <button id="closeSettingsBtn" class="icon-button close" title="Close">×</button>
+      <h3>Settings</h3>
+      <div class="help-content">
+        <h4>Auto Update</h4>
+        <p>
+          Chrome prevents unpacked extensions from silently updating themselves. The safest approach is to
+          download the latest release and reload it manually. Use the checker below to learn if a newer
+          version exists.
+        </p>
+        <div class="actions wrap start">
+          <button id="checkUpdatesBtn">Check for updates</button>
+          <a id="downloadLatestLink" class="ghost" href="https://github.com/abidkhanpk/cookie_switch/archive/refs/heads/master.zip" target="_blank" rel="noreferrer">Download latest ZIP</a>
+        </div>
+        <p id="updateStatus" class="status"></p>
+      </div>
     </div>
   </div>
   <script src="popup.js"></script>

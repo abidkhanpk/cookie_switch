@@ -26,6 +26,11 @@ const helpBtn = document.getElementById('helpBtn');
 const helpModal = document.getElementById('helpModal');
 const helpContent = document.getElementById('helpContent');
 const closeHelpBtn = document.getElementById('closeHelpBtn');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+const updateStatus = document.getElementById('updateStatus');
 const versionLabel = document.querySelector('.app-version');
 
 let siteProfiles = {};
@@ -40,6 +45,8 @@ const IMPORT_BUTTON_LABELS = {
   edit: 'Update from current account'
 };
 let helpLoaded = false;
+let checkingUpdates = false;
+const REMOTE_MANIFEST_URL = 'https://github.com/abidkhanpk/cookie_switch/raw/refs/heads/master/manifest.json';
 
 init();
 
@@ -130,6 +137,22 @@ function bindEvents() {
         closeHelpModal();
       }
     });
+  }
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', openSettingsModal);
+  }
+  if (closeSettingsBtn) {
+    closeSettingsBtn.addEventListener('click', closeSettingsModal);
+  }
+  if (settingsModal) {
+    settingsModal.addEventListener('click', (event) => {
+      if (event.target === settingsModal) {
+        closeSettingsModal();
+      }
+    });
+  }
+  if (checkUpdatesBtn) {
+    checkUpdatesBtn.addEventListener('click', checkForUpdates);
   }
 }
 
@@ -867,6 +890,58 @@ function escapeHtml(str) {
 function formatInline(str) {
   const escaped = escapeHtml(str);
   return escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+
+function openSettingsModal() {
+  if (!settingsModal) return;
+  settingsModal.classList.remove('hidden');
+  if (updateStatus) {
+    updateStatus.textContent = '';
+  }
+}
+
+function closeSettingsModal() {
+  if (!settingsModal) return;
+  settingsModal.classList.add('hidden');
+}
+
+async function checkForUpdates() {
+  if (!updateStatus || checkingUpdates) return;
+  updateStatus.textContent = 'Checking…';
+  checkingUpdates = true;
+  try {
+    const response = await fetch(REMOTE_MANIFEST_URL);
+    if (!response.ok) {
+      throw new Error('Unable to load remote manifest.');
+    }
+    const data = await response.json();
+    const remoteVersion = data.version || 'unknown';
+    const comparison = compareVersions(remoteVersion, APP_VERSION);
+    if (comparison > 0) {
+      updateStatus.innerHTML = `New version <strong>${remoteVersion}</strong> is available. Download the ZIP and reload the extension.`;
+    } else if (comparison === 0) {
+      updateStatus.textContent = 'You already have the latest version installed.';
+    } else {
+      updateStatus.textContent = 'You are running a newer development version.';
+    }
+  } catch (error) {
+    updateStatus.textContent = error.message;
+  } finally {
+    checkingUpdates = false;
+  }
+}
+
+function compareVersions(a = '', b = '') {
+  const aParts = a.split('.').map((n) => parseInt(n, 10) || 0);
+  const bParts = b.split('.').map((n) => parseInt(n, 10) || 0);
+  const length = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < length; i += 1) {
+    const diff = (aParts[i] || 0) - (bParts[i] || 0);
+    if (diff !== 0) {
+      return diff > 0 ? 1 : -1;
+    }
+  }
+  return 0;
 }
 
 function setRowMeta(row, cookie = {}) {
