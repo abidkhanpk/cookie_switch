@@ -27,6 +27,7 @@ Whenever you update the files, revisit `chrome://extensions` and press **Reload*
 ### 1. Create or Select a Website
 - Open the popup, choose an existing site, or enter a URL and click **Save Site**.
 - The site dropdown holds every origin you have configured.
+- (Optional) Use the **Notes** box beneath the URL to jot down extra context, direct deep links, or credentials hints.
 
 ### 2. Capture an Account
 1. Navigate to the website and sign in with the account you want to store.

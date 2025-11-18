@@ -1,5 +1,6 @@
 const siteSelect = document.getElementById('siteSelect');
 const siteInput = document.getElementById('siteInput');
+const siteNotesInput = document.getElementById('siteNotesInput');
 const siteStatus = document.getElementById('siteStatus');
 const siteButtons = {
   save: document.getElementById('saveSiteBtn'),
@@ -83,14 +84,18 @@ function bindEvents() {
       displayStatus(siteStatus, 'Enter a valid URL such as https://example.com.', 'error');
       return;
     }
+    const notes = siteNotesInput ? siteNotesInput.value.trim() : '';
     const alreadyExists = siteProfiles[normalized];
     if (currentSiteKey && currentSiteKey !== normalized) {
       const siteData = siteProfiles[currentSiteKey] || { origin: normalized, accounts: [] };
       delete siteProfiles[currentSiteKey];
       siteData.origin = normalized;
+      siteData.notes = notes;
       siteProfiles[normalized] = siteData;
     } else if (!alreadyExists) {
-      siteProfiles[normalized] = { origin: normalized, accounts: [] };
+      siteProfiles[normalized] = { origin: normalized, notes, accounts: [] };
+    } else {
+      siteProfiles[normalized].notes = notes;
     }
     currentSiteKey = normalized;
     persistProfiles();
@@ -177,9 +182,15 @@ function updateSiteInput() {
   if (currentSiteKey) {
     siteInput.value = currentSiteKey;
     siteSelect.value = currentSiteKey;
+    if (siteNotesInput) {
+      siteNotesInput.value = siteProfiles[currentSiteKey]?.notes || '';
+    }
   } else {
     siteInput.value = '';
     siteSelect.value = '';
+    if (siteNotesInput) {
+      siteNotesInput.value = '';
+    }
   }
 }
 
@@ -561,9 +572,9 @@ async function importAccountFromFile() {
     if (!targetSiteKey) {
       throw new Error('Select or create a site before importing an account.');
     }
-    if (!siteProfiles[targetSiteKey]) {
-      siteProfiles[targetSiteKey] = { origin: targetSiteKey, accounts: [] };
-    }
+  if (!siteProfiles[targetSiteKey]) {
+    siteProfiles[targetSiteKey] = { origin: targetSiteKey, notes: '', accounts: [] };
+  }
     const site = siteProfiles[targetSiteKey];
     const newAccount = formatImportedAccount(payload.account);
     site.accounts.push(newAccount);
@@ -618,6 +629,7 @@ async function importSiteData() {
     }
     siteProfiles[targetOrigin] = {
       origin: targetOrigin,
+      notes: payload.site.notes || '',
       accounts: (payload.site.accounts || []).map((account) => formatImportedAccount(account))
     };
     currentSiteKey = targetOrigin;
@@ -673,6 +685,7 @@ async function importFullBackup() {
       }
       restoredProfiles[key] = {
         origin: key,
+        notes: site?.notes || '',
         accounts: (site.accounts || []).map((account) => formatImportedAccount(account))
       };
     });
@@ -1046,6 +1059,7 @@ function serializeSite(site, key) {
   }
   return {
     origin: site.origin || key,
+    notes: site.notes || '',
     accounts: (site.accounts || []).map((account) => serializeAccount(account))
   };
 }
