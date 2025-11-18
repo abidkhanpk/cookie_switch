@@ -98,17 +98,6 @@
       </div>
     </section>
 
-    <section class="card" id="backupPanel">
-      <div class="section-header">
-        <h2>All Sites Backup</h2>
-        <div class="status" id="backupStatus"></div>
-      </div>
-      <div class="actions wrap">
-        <button id="importBackupBtn" class="ghost danger">Restore All Sites</button>
-        <button id="exportBackupBtn">Backup All Sites</button>
-      </div>
-    </section>
-
     <footer class="app-footer">
       <span>Created by Abid Khan</span>
       <span>© 2025 All rights reserved</span>
@@ -129,6 +118,10 @@
       <h3>Settings</h3>
       <div class="help-content">
         <h4>Auto Update</h4>
+        <div class="field toggle-field">
+          <span>Auto check for updates</span>
+          <input type="checkbox" id="autoUpdateToggle" />
+        </div>
         <div class="actions wrap start">
           <button id="checkUpdatesBtn">Check for updates</button>
           <a id="downloadLatestLink" class="ghost hidden" href="https://github.com/abidkhanpk/cookie_switch/archive/refs/heads/master.zip" target="_blank" rel="noreferrer">Download latest ZIP</a>
@@ -137,6 +130,13 @@
         <p id="updateInstructions" class="status hidden">
           Download the ZIP, unzip it, and use <strong>chrome://extensions</strong> → Reload to apply the update.
         </p>
+        <hr />
+        <h4>All Sites Backup</h4>
+        <div class="actions wrap start">
+          <button id="importBackupBtn" class="ghost danger">Restore All Sites</button>
+          <button id="exportBackupBtn">Backup All Sites</button>
+        </div>
+        <p id="backupStatus" class="status"></p>
       </div>
     </div>
   </div>

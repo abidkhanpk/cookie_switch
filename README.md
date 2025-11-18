@@ -46,7 +46,7 @@ Whenever you update the files, revisit `chrome://extensions` and press **Reload*
 ### 5. Import / Export
 - **Account Export** – Each card has an **Export** button; importing uses the **Import Account** action above the editor.
 - **Site Export** – Use the site-level buttons to export/import all accounts for a specific origin.
-- **Full Backup** – The "All Sites Backup" card can back up or restore everything, including the `activeAccountMap` that ties origins to auto-update accounts.
+- **Full Backup** – Open the settings dialog (⚙) and use "Backup All Sites" / "Restore All Sites" to export/import every saved site.
 
 ### 6. Settings & Manual Updates
 - Click the **⚙** button in the popup header to open the settings dialog.
