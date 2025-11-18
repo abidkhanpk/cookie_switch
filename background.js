@@ -1,12 +1,22 @@
 const ACTIVE_REQUESTS = new Map();
 let siteProfilesCache = {};
 let activeAccountMap = {};
+let autoUpdateEnabled = false;
+let updateAvailableVersion = null;
 const AUTO_SYNC_QUEUE = new Map();
 const AUTO_SYNC_SUSPEND = new Set();
+const AUTO_UPDATE_ALARM = 'auto-update-check';
+const AUTO_UPDATE_INTERVAL_MIN = 60;
+const REMOTE_MANIFEST_URL = 'https://github.com/abidkhanpk/cookie_switch/raw/refs/heads/master/manifest.json';
 
 bootstrapCaches();
 chrome.storage.onChanged.addListener(handleStorageChange);
 chrome.cookies.onChanged.addListener(handleCookieChange);
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === AUTO_UPDATE_ALARM) {
+    performAutoUpdateCheck();
+  }
+});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === 'switch-account') {
@@ -34,6 +44,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     handleFetchCookiesRequest(message.payload)
       .then((cookies) => sendResponse({ cookies }))
       .catch((error) => sendResponse({ error: error.message || 'Unable to fetch cookies.' }));
+    return true;
+  }
+  if (message?.type === 'refresh-auto-update-alarm') {
+    autoUpdateEnabled = Boolean(message.payload?.enabled);
+    configureAutoUpdateAlarm();
+    if (autoUpdateEnabled) {
+      performAutoUpdateCheck();
+    }
+    sendResponse({ success: true });
     return true;
   }
   return false;
@@ -163,10 +182,17 @@ function buildCookieUrl({ domain, secure, path }) {
 }
 
 function bootstrapCaches() {
-  chrome.storage.local.get({ siteProfiles: {}, activeAccountMap: {} }, (data) => {
-    siteProfilesCache = data.siteProfiles || {};
-    activeAccountMap = data.activeAccountMap || {};
-  });
+  chrome.storage.local.get(
+    { siteProfiles: {}, activeAccountMap: {}, autoUpdateEnabled: false, updateAvailableVersion: null },
+    (data) => {
+      siteProfilesCache = data.siteProfiles || {};
+      activeAccountMap = data.activeAccountMap || {};
+      autoUpdateEnabled = Boolean(data.autoUpdateEnabled);
+      updateAvailableVersion = data.updateAvailableVersion || null;
+      configureAutoUpdateAlarm();
+      refreshBadge();
+    }
+  );
 }
 
 function handleStorageChange(changes, area) {
@@ -176,6 +202,14 @@ function handleStorageChange(changes, area) {
   }
   if (changes.activeAccountMap) {
     activeAccountMap = changes.activeAccountMap.newValue || {};
+  }
+  if (changes.autoUpdateEnabled) {
+    autoUpdateEnabled = Boolean(changes.autoUpdateEnabled.newValue);
+    configureAutoUpdateAlarm();
+  }
+  if (changes.updateAvailableVersion) {
+    updateAvailableVersion = changes.updateAvailableVersion.newValue || null;
+    refreshBadge();
   }
 }
 
@@ -305,4 +339,72 @@ function serializeCookie(cookie) {
     }
   });
   return normalized;
+}
+
+function configureAutoUpdateAlarm() {
+  chrome.alarms.clear(AUTO_UPDATE_ALARM, () => {
+    if (autoUpdateEnabled) {
+      chrome.alarms.create(AUTO_UPDATE_ALARM, {
+        delayInMinutes: 1,
+        periodInMinutes: AUTO_UPDATE_INTERVAL_MIN
+      });
+    }
+  });
+}
+
+async function performAutoUpdateCheck() {
+  if (!autoUpdateEnabled) {
+    return;
+  }
+  try {
+    const response = await fetch(REMOTE_MANIFEST_URL);
+    if (!response.ok) {
+      return;
+    }
+    const data = await response.json();
+    const remoteVersion = data.version;
+    if (!remoteVersion) {
+      return;
+    }
+    const comparison = compareVersions(remoteVersion, chrome.runtime.getManifest().version);
+    if (comparison > 0) {
+      await setUpdateAvailableVersion(remoteVersion);
+    } else {
+      await setUpdateAvailableVersion(null);
+    }
+  } catch (error) {
+    // ignore network errors during auto update checks
+  }
+}
+
+async function setUpdateAvailableVersion(version) {
+  const normalized = version || null;
+  if (normalized === updateAvailableVersion) {
+    return;
+  }
+  updateAvailableVersion = normalized;
+  await chrome.storage.local.set({ updateAvailableVersion: normalized });
+  refreshBadge();
+}
+
+function refreshBadge() {
+  if (updateAvailableVersion) {
+    chrome.action.setBadgeText({ text: 'UPD' });
+    chrome.action.setBadgeBackgroundColor({ color: '#dc2626' });
+  } else {
+    chrome.action.setBadgeText({ text: '' });
+  }
+}
+
+function compareVersions(a = '', b = '') {
+  const aParts = a.split('.').map((n) => parseInt(n, 10) || 0);
+  const bParts = b.split('.').map((n) => parseInt(n, 10) || 0);
+  const length = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < length; i += 1) {
+    const diff = (aParts[i] || 0) - (bParts[i] || 0);
+    if (diff !== 0) {
+      return diff > 0 ? 1 : -1;
+    }
+  }
+  return 0;
 }

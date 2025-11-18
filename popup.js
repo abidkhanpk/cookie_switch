@@ -34,6 +34,7 @@ const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
 const downloadLatestLink = document.getElementById('downloadLatestLink');
 const updateStatus = document.getElementById('updateStatus');
 const updateInstructions = document.getElementById('updateInstructions');
+const autoUpdateToggle = document.getElementById('autoUpdateToggle');
 const versionLabel = document.querySelector('.app-version');
 
 let siteProfiles = {};
@@ -49,7 +50,20 @@ const IMPORT_BUTTON_LABELS = {
 };
 let helpLoaded = false;
 let checkingUpdates = false;
+let autoUpdateEnabled = false;
+let updateAvailableVersion = null;
 const REMOTE_MANIFEST_URL = 'https://github.com/abidkhanpk/cookie_switch/raw/refs/heads/master/manifest.json';
+const AUTO_UPDATE_MESSAGE = 'refresh-auto-update-alarm';
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') {
+    return;
+  }
+  if (changes.updateAvailableVersion) {
+    updateAvailableVersion = changes.updateAvailableVersion.newValue || null;
+    refreshUpdateUI();
+  }
+});
 
 init();
 
@@ -57,6 +71,7 @@ function init() {
   bindEvents();
   loadProfiles();
   setVersionLabel();
+  loadSettings();
 }
 
 function bindEvents() {
@@ -161,6 +176,13 @@ function bindEvents() {
   if (checkUpdatesBtn) {
     checkUpdatesBtn.addEventListener('click', checkForUpdates);
   }
+  if (autoUpdateToggle) {
+    autoUpdateToggle.addEventListener('change', async () => {
+      autoUpdateEnabled = autoUpdateToggle.checked;
+      await chrome.storage.local.set({ autoUpdateEnabled });
+      configureAutoUpdateTimer();
+    });
+  }
 }
 
 async function loadProfiles() {
@@ -172,6 +194,17 @@ async function loadProfiles() {
   updateSiteInput();
   resetAccountForm();
   renderAccounts();
+}
+
+async function loadSettings() {
+  const stored = await chrome.storage.local.get({ autoUpdateEnabled: false, updateAvailableVersion: null });
+  autoUpdateEnabled = Boolean(stored.autoUpdateEnabled);
+  updateAvailableVersion = stored.updateAvailableVersion || null;
+  if (autoUpdateToggle) {
+    autoUpdateToggle.checked = autoUpdateEnabled;
+  }
+  refreshUpdateUI();
+  configureAutoUpdateTimer();
 }
 
 function persistProfiles() {
@@ -913,12 +946,10 @@ function openSettingsModal() {
   if (updateStatus) {
     updateStatus.textContent = '';
   }
-  if (downloadLatestLink) {
-    downloadLatestLink.classList.add('hidden');
+  if (autoUpdateToggle) {
+    autoUpdateToggle.checked = autoUpdateEnabled;
   }
-  if (updateInstructions) {
-    updateInstructions.classList.add('hidden');
-  }
+  refreshUpdateUI();
 }
 
 function closeSettingsModal() {
@@ -940,22 +971,29 @@ async function checkForUpdates() {
     const comparison = compareVersions(remoteVersion, APP_VERSION);
     if (comparison > 0) {
       updateStatus.innerHTML = `New version <strong>${remoteVersion}</strong> is available.`;
-      if (downloadLatestLink) {
-        downloadLatestLink.classList.remove('hidden');
-      }
-      if (updateInstructions) {
-        updateInstructions.classList.remove('hidden');
-      }
+      await chrome.storage.local.set({ updateAvailableVersion: remoteVersion });
     } else if (comparison === 0) {
       updateStatus.textContent = 'You already have the latest version installed.';
+      await chrome.storage.local.set({ updateAvailableVersion: null });
     } else {
       updateStatus.textContent = 'You are running a newer development version.';
+      await chrome.storage.local.set({ updateAvailableVersion: null });
     }
   } catch (error) {
     updateStatus.textContent = error.message;
   } finally {
     checkingUpdates = false;
   }
+}
+
+function configureAutoUpdateTimer() {
+  chrome.runtime.sendMessage(
+    {
+      type: AUTO_UPDATE_MESSAGE,
+      payload: { enabled: autoUpdateEnabled }
+    },
+    () => {}
+  );
 }
 
 function compareVersions(a = '', b = '') {
@@ -969,6 +1007,19 @@ function compareVersions(a = '', b = '') {
     }
   }
   return 0;
+}
+
+function refreshUpdateUI() {
+  if (!downloadLatestLink || !updateInstructions) {
+    return;
+  }
+  if (updateAvailableVersion) {
+    downloadLatestLink.classList.remove('hidden');
+    updateInstructions.classList.remove('hidden');
+  } else {
+    downloadLatestLink.classList.add('hidden');
+    updateInstructions.classList.add('hidden');
+  }
 }
 
 function setRowMeta(row, cookie = {}) {
