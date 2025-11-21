@@ -288,7 +288,8 @@ function renderAccounts() {
         titleWrap.appendChild(badge);
       }
 
-      const meta = document.createElement('small');
+      const meta = document.createElement('div');
+      meta.className = 'account-card-meta';
       const cookieCount = account.cookies?.length || 0;
       const updated = account.updatedAt ? new Date(account.updatedAt).toLocaleString() : 'Never';
       meta.textContent = `${cookieCount} cookies • Updated ${updated}`;
