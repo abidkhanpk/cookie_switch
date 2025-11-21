@@ -444,6 +444,45 @@ select {
   gap: 16px;
 }
 
+.support-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(120deg, rgba(59, 130, 246, 0.2), rgba(14, 165, 233, 0.15));
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.support-banner-text p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #0f172a;
+}
+
+.support-banner-text strong {
+  display: block;
+  margin-top: 2px;
+  color: #1d4ed8;
+}
+
+.support-button {
+  background: #1d4ed8;
+  color: #fff;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s ease;
+  white-space: nowrap;
+}
+
+.support-button:hover {
+  background: #1e40af;
+}
+
 .settings-card {
   background: #fff;
   border-radius: 14px;
@@ -687,6 +726,27 @@ select {
 
   .toggle-track {
     background: #1f2937;
+  }
+
+  .support-banner {
+    background: linear-gradient(120deg, rgba(79, 70, 229, 0.35), rgba(14, 165, 233, 0.25));
+    border-color: rgba(191, 219, 254, 0.2);
+  }
+
+  .support-banner-text p {
+    color: #e2e8f0;
+  }
+
+  .support-banner-text strong {
+    color: #c7d2fe;
+  }
+
+  .support-button {
+    background: #4338ca;
+  }
+
+  .support-button:hover {
+    background: #3730a3;
   }
 
   .support-link {

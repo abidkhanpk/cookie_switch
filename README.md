@@ -77,4 +77,8 @@ Whenever you update the files, revisit `chrome://extensions` and press **Reload*
 - **Auto update not triggering** – Ensure the account was switched at least once after enabling auto update so the extension knows it is the active profile.
 - **Import errors** – Confirm the JSON file was exported by Cookie Switch and not altered manually.
 
+## Support Cookie Switch
+
+Cookie Switch is a side project maintained in spare hours. If it saves you time or helps your team, please consider showing some love by [buying me a coffee](https://www.buymeacoffee.com/abidkhanpk). Your support keeps new features and polish coming. ☕
+
 Enjoy seamless account swapping!
