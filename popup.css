@@ -61,7 +61,7 @@ header h1 {
   justify-content: center;
   transition: background 0.2s ease;
   padding: 0;
-  line-height: 24px;
+  line-height: 1.5;
 }
 
 .icon-button:hover {
@@ -81,6 +81,9 @@ header h1 {
 
 .icon-button.settings {
   font-size: 1.1rem;
+}
+
+#helpBtn {
   line-height: 1.5;
 }
 
@@ -110,6 +113,7 @@ header h1 {
   white-space: nowrap;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
   z-index: 20;
+  font-weight: 400;
 }
 
 .icon-button[data-tooltip]::before {
