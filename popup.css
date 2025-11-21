@@ -81,7 +81,7 @@ header h1 {
 
 .icon-button.settings {
   font-size: 1.1rem;
-  line-height: 0;
+  line-height: 1.5;
 }
 
 .icon-button[data-tooltip] {
