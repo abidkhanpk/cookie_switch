@@ -224,14 +224,22 @@ button {
   padding: 10px 16px;
   font-size: 0.85rem;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
   background: linear-gradient(135deg, #4c1d95, #7c3aed);
   color: #fff;
+  text-decoration: none;
+}
+
+.button:hover,
+button:hover {
+  box-shadow: 0 8px 20px rgba(76, 29, 149, 0.25);
+  transform: translateY(-1px);
 }
 
 .button:active,
 button:active {
   transform: scale(0.97);
+  box-shadow: none;
 }
 
 .button.ghost,
@@ -241,15 +249,31 @@ button.ghost {
   box-shadow: none;
 }
 
+.button.ghost:hover,
+button.ghost:hover {
+  background: rgba(99, 102, 241, 0.25);
+}
+
 .button.danger,
 button.danger {
   background: #ef4444;
+}
+
+.button.danger:hover,
+button.danger:hover {
+  background: #dc2626;
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.3);
 }
 
 .button.danger.ghost,
 button.danger.ghost {
   background: rgba(239, 68, 68, 0.12);
   color: #b91c1c;
+}
+
+.button.danger.ghost:hover,
+button.danger.ghost:hover {
+  background: rgba(239, 68, 68, 0.2);
 }
 
 .actions {
