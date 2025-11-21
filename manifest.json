@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Cookie Switch",
   "description": "Switch between multiple website accounts by swapping cookie sets.",
-  "version": "1.40.1",
+  "version": "1.41.0",
   "permissions": [
     "storage",
     "cookies",

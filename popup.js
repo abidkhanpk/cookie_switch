@@ -36,6 +36,7 @@ const updateStatus = document.getElementById('updateStatus');
 const updateInstructions = document.getElementById('updateInstructions');
 const autoUpdateToggle = document.getElementById('autoUpdateToggle');
 const versionLabel = document.querySelector('.app-version');
+const LAST_SITE_KEY = 'lastSiteKey';
 
 let siteProfiles = {};
 let currentSiteKey = null;
@@ -76,7 +77,7 @@ function init() {
 
 function bindEvents() {
   siteSelect.addEventListener('change', () => {
-    currentSiteKey = siteSelect.value || null;
+    setCurrentSiteKey(siteSelect.value || null);
     editingAccountId = null;
     updateSiteInput();
     resetAccountForm();
@@ -84,7 +85,7 @@ function bindEvents() {
   });
 
   siteButtons.new.addEventListener('click', () => {
-    currentSiteKey = null;
+    setCurrentSiteKey(null);
     siteSelect.value = '';
     editingAccountId = null;
     updateSiteInput();
@@ -112,7 +113,7 @@ function bindEvents() {
     } else {
       siteProfiles[normalized].notes = notes;
     }
-    currentSiteKey = normalized;
+    setCurrentSiteKey(normalized);
     persistProfiles();
     renderSiteOptions();
     renderAccounts();
@@ -129,7 +130,7 @@ function bindEvents() {
     }
     const removedKey = currentSiteKey;
     delete siteProfiles[currentSiteKey];
-    currentSiteKey = Object.keys(siteProfiles)[0] || null;
+    setCurrentSiteKey(Object.keys(siteProfiles)[0] || null);
     persistProfiles();
     renderSiteOptions();
     resetAccountForm();
@@ -186,10 +187,12 @@ function bindEvents() {
 }
 
 async function loadProfiles() {
-  const stored = await chrome.storage.local.get({ siteProfiles: {}, activeAccountMap: {} });
+  const stored = await chrome.storage.local.get({ siteProfiles: {}, activeAccountMap: {}, lastSiteKey: null });
   siteProfiles = stored.siteProfiles || {};
   activeAccountMap = stored.activeAccountMap || {};
-  currentSiteKey = currentSiteKey || Object.keys(siteProfiles)[0] || null;
+  const firstSiteKey = Object.keys(siteProfiles)[0] || null;
+  const initialSiteKey = stored.lastSiteKey && siteProfiles[stored.lastSiteKey] ? stored.lastSiteKey : firstSiteKey;
+  setCurrentSiteKey(initialSiteKey, { persist: false });
   renderSiteOptions();
   updateSiteInput();
   resetAccountForm();
@@ -208,7 +211,18 @@ async function loadSettings() {
 }
 
 function persistProfiles() {
-  chrome.storage.local.set({ siteProfiles });
+  chrome.storage.local.set({ siteProfiles, [LAST_SITE_KEY]: currentSiteKey });
+}
+
+function setCurrentSiteKey(key, { persist = true } = {}) {
+  currentSiteKey = key || null;
+  if (persist) {
+    persistCurrentSiteKey();
+  }
+}
+
+function persistCurrentSiteKey() {
+  chrome.storage.local.set({ [LAST_SITE_KEY]: currentSiteKey });
 }
 
 function updateSiteInput() {
@@ -606,13 +620,13 @@ async function importAccountFromFile() {
     if (!targetSiteKey) {
       throw new Error('Select or create a site before importing an account.');
     }
-  if (!siteProfiles[targetSiteKey]) {
-    siteProfiles[targetSiteKey] = { origin: targetSiteKey, notes: '', accounts: [] };
-  }
+    if (!siteProfiles[targetSiteKey]) {
+      siteProfiles[targetSiteKey] = { origin: targetSiteKey, notes: '', accounts: [] };
+    }
     const site = siteProfiles[targetSiteKey];
     const newAccount = formatImportedAccount(payload.account);
     site.accounts.push(newAccount);
-    currentSiteKey = targetSiteKey;
+    setCurrentSiteKey(targetSiteKey);
     persistProfiles();
     renderSiteOptions();
     renderAccounts();
@@ -666,7 +680,7 @@ async function importSiteData() {
       notes: payload.site.notes || '',
       accounts: (payload.site.accounts || []).map((account) => formatImportedAccount(account))
     };
-    currentSiteKey = targetOrigin;
+    setCurrentSiteKey(targetOrigin);
     persistProfiles();
     renderSiteOptions();
     updateSiteInput();
@@ -724,11 +738,12 @@ async function importFullBackup() {
       };
     });
     siteProfiles = restoredProfiles;
-    currentSiteKey = Object.keys(siteProfiles)[0] || null;
+    setCurrentSiteKey(Object.keys(siteProfiles)[0] || null);
     activeAccountMap = payload.activeAccountMap || {};
     await chrome.storage.local.set({
       siteProfiles,
-      activeAccountMap
+      activeAccountMap,
+      [LAST_SITE_KEY]: currentSiteKey
     });
     renderSiteOptions();
     updateSiteInput();
