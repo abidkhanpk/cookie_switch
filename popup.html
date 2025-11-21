@@ -116,27 +116,52 @@
     <div class="modal-content">
       <button id="closeSettingsBtn" class="icon-button close" title="Close">×</button>
       <h3>Settings</h3>
-      <div class="help-content">
-        <h4>Auto Update</h4>
-        <div class="field toggle-field">
-          <span>Auto check for updates</span>
-          <input type="checkbox" id="autoUpdateToggle" />
-        </div>
-        <div class="actions wrap start">
-          <button id="checkUpdatesBtn">Check for updates</button>
-          <a id="downloadLatestLink" class="ghost hidden" href="https://github.com/abidkhanpk/cookie_switch/archive/refs/heads/master.zip" target="_blank" rel="noreferrer">Download latest ZIP</a>
-        </div>
-        <p id="updateStatus" class="status"></p>
-        <p id="updateInstructions" class="status hidden">
-          Download the ZIP, unzip it, and use <strong>chrome://extensions</strong> → Reload to apply the update.
-        </p>
-        <hr />
-        <h4>All Sites Backup</h4>
-        <div class="actions wrap start">
-          <button id="importBackupBtn" class="ghost danger">Restore All Sites</button>
-          <button id="exportBackupBtn">Backup All Sites</button>
-        </div>
-        <p id="backupStatus" class="status"></p>
+      <div class="help-content settings-panel">
+        <section class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-card-text">
+              <p class="settings-eyebrow">Updates</p>
+              <h4>Auto Update</h4>
+              <p class="settings-subtext">Automatically check for the latest Cookie Switch release.</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="autoUpdateToggle" aria-label="Toggle auto update" />
+              <span class="toggle-track">
+                <span class="toggle-thumb"></span>
+              </span>
+              <span class="toggle-switch-labels" aria-hidden="true">
+                <span class="off">Off</span>
+                <span class="on">On</span>
+              </span>
+            </label>
+          </div>
+          <div class="settings-card-body">
+            <div class="settings-card-actions">
+              <button id="checkUpdatesBtn">Check for updates</button>
+              <a id="downloadLatestLink" class="ghost hidden" href="https://github.com/abidkhanpk/cookie_switch/archive/refs/heads/master.zip" target="_blank" rel="noreferrer">Download latest ZIP</a>
+            </div>
+            <p id="updateStatus" class="status"></p>
+            <p id="updateInstructions" class="status hidden">
+              Download the ZIP, unzip it, and use <strong>chrome://extensions</strong> → Reload to apply the update.
+            </p>
+          </div>
+        </section>
+        <section class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-card-text">
+              <p class="settings-eyebrow">Backups</p>
+              <h4>All Sites Backup</h4>
+              <p class="settings-subtext">Safely export or restore every saved site and account.</p>
+            </div>
+          </div>
+          <div class="settings-card-body">
+            <div class="settings-card-actions">
+              <button id="importBackupBtn" class="ghost danger">Restore All Sites</button>
+              <button id="exportBackupBtn">Backup All Sites</button>
+            </div>
+            <p id="backupStatus" class="status"></p>
+          </div>
+        </section>
       </div>
     </div>
   </div>

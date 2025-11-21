@@ -423,6 +423,135 @@ select {
   border-radius: 4px;
 }
 
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-card {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.settings-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.settings-card-text h4 {
+  margin: 2px 0;
+}
+
+.settings-eyebrow {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  margin: 0;
+}
+
+.settings-subtext {
+  margin: 4px 0 0;
+  color: #475569;
+  font-size: 0.78rem;
+}
+
+.settings-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.toggle-track {
+  width: 48px;
+  height: 24px;
+  border-radius: 999px;
+  background: #cbd5f5;
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.toggle-thumb {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  top: 2px;
+  left: 2px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.toggle-switch input:checked + .toggle-track {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+}
+
+.toggle-switch input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(24px);
+}
+
+.toggle-switch-labels {
+  display: flex;
+  gap: 4px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.toggle-switch-labels .on,
+.toggle-switch-labels .off {
+  color: #94a3b8;
+}
+
+.toggle-switch input:checked ~ .toggle-switch-labels .on {
+  color: #2563eb;
+}
+
+.toggle-switch input:checked ~ .toggle-switch-labels .off {
+  color: #cbd5f5;
+}
+
+.toggle-switch input:not(:checked) ~ .toggle-switch-labels .off {
+  color: #2563eb;
+}
+
+.toggle-switch input:not(:checked) ~ .toggle-switch-labels .on {
+  color: #cbd5f5;
+}
+
 .chip[data-tooltip]::after,
 .chip[data-tooltip]::before {
   opacity: 0;
@@ -550,6 +679,24 @@ select {
   .account-card {
     border-color: #1e293b;
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(59, 130, 246, 0.08));
+  }
+
+  .settings-card {
+    background: #0f172a;
+    border-color: #1e293b;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5);
+  }
+
+  .settings-subtext {
+    color: #cbd5f5;
+  }
+
+  .settings-eyebrow {
+    color: #a5b4fc;
+  }
+
+  .toggle-track {
+    background: #1f2937;
   }
 
   #cookiesTable th {
