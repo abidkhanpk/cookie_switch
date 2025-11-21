@@ -217,6 +217,7 @@ input[type="text"]:focus {
   border-color: transparent;
 }
 
+.button,
 button {
   border: none;
   border-radius: 999px;
@@ -228,20 +229,24 @@ button {
   color: #fff;
 }
 
+.button:active,
 button:active {
   transform: scale(0.97);
 }
 
+.button.ghost,
 button.ghost {
   background: rgba(99, 102, 241, 0.12);
   color: #4c1d95;
   box-shadow: none;
 }
 
+.button.danger,
 button.danger {
   background: #ef4444;
 }
 
+.button.danger.ghost,
 button.danger.ghost {
   background: rgba(239, 68, 68, 0.12);
   color: #b91c1c;
