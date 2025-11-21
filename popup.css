@@ -443,8 +443,12 @@ select {
 .settings-card-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
+}
+
+.settings-card-text {
+  flex: 1;
 }
 
 .settings-card-text h4 {
@@ -521,35 +525,6 @@ select {
 
 .toggle-switch input:checked + .toggle-track .toggle-thumb {
   transform: translateX(24px);
-}
-
-.toggle-switch-labels {
-  display: flex;
-  gap: 4px;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
-.toggle-switch-labels .on,
-.toggle-switch-labels .off {
-  color: #94a3b8;
-}
-
-.toggle-switch input:checked ~ .toggle-switch-labels .on {
-  color: #2563eb;
-}
-
-.toggle-switch input:checked ~ .toggle-switch-labels .off {
-  color: #cbd5f5;
-}
-
-.toggle-switch input:not(:checked) ~ .toggle-switch-labels .off {
-  color: #2563eb;
-}
-
-.toggle-switch input:not(:checked) ~ .toggle-switch-labels .on {
-  color: #cbd5f5;
 }
 
 .chip[data-tooltip]::after,
