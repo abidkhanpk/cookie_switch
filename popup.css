@@ -353,6 +353,21 @@ select {
   text-align: center;
 }
 
+.support-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.support-link:hover {
+  text-decoration: underline;
+  color: #1d4ed8;
+}
+
 .hidden {
   display: none !important;
 }
@@ -672,6 +687,14 @@ select {
 
   .toggle-track {
     background: #1f2937;
+  }
+
+  .support-link {
+    color: #a5b4fc;
+  }
+
+  .support-link:hover {
+    color: #c7d2fe;
   }
 
   #cookiesTable th {
