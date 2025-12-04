@@ -5,6 +5,8 @@ let autoUpdateEnabled = false;
 let updateAvailableVersion = null;
 const AUTO_SYNC_QUEUE = new Map();
 const AUTO_SYNC_SUSPEND = new Set();
+const MIN_VALUE_MATCHES = 2;
+const MIN_VALUE_MATCH_RATIO = 0.1;
 const AUTO_UPDATE_ALARM = 'auto-update-check';
 const AUTO_UPDATE_INTERVAL_MIN = 60;
 const REMOTE_MANIFEST_URL = 'https://github.com/abidkhanpk/cookie_switch/raw/refs/heads/master/manifest.json';
@@ -272,7 +274,7 @@ function handleCookieChange(changeInfo) {
     const site = siteProfilesCache[origin];
     const account = site?.accounts?.find((acc) => acc.id === active.accountId);
     if (!account || !account.autoSync) return;
-    scheduleAutoSync(origin, account.id, cookie.storeId);
+    scheduleAutoSync(origin, cookie.storeId);
   });
 }
 
@@ -283,12 +285,12 @@ function matchesDomain(hostname, cookieDomain = '') {
   return host === domain || host.endsWith(`.${domain}`);
 }
 
-function scheduleAutoSync(origin, accountId, storeId) {
-  const key = `${origin}::${accountId}::${storeId || 'default'}`;
+function scheduleAutoSync(origin, storeId) {
+  const key = `${origin}::${storeId || 'default'}`;
   if (AUTO_SYNC_QUEUE.has(key)) {
     return;
   }
-  const job = autoSyncAccount(origin, accountId, storeId)
+  const job = autoSyncAccount(origin, storeId)
     .catch(() => {})
     .finally(() => {
       AUTO_SYNC_QUEUE.delete(key);
@@ -296,17 +298,21 @@ function scheduleAutoSync(origin, accountId, storeId) {
   AUTO_SYNC_QUEUE.set(key, job);
 }
 
-async function autoSyncAccount(origin, accountId, storeId) {
+async function autoSyncAccount(origin, storeId) {
   const site = siteProfilesCache[origin];
   if (!site) return;
-  const accountIndex = site.accounts?.findIndex((acc) => acc.id === accountId);
-  if (accountIndex === undefined || accountIndex < 0) return;
   const host = new URL(origin).hostname;
   const query = { domain: host };
   if (storeId) {
     query.storeId = storeId;
   }
   const cookies = await chrome.cookies.getAll(query);
+  const targetAccountId = selectAccountForUpdate(origin, site, cookies);
+  if (!targetAccountId) {
+    return;
+  }
+  const accountIndex = site.accounts?.findIndex((acc) => acc.id === targetAccountId);
+  if (accountIndex === undefined || accountIndex < 0) return;
   const normalized = cookies.map((cookie) => serializeCookie(cookie));
   site.accounts[accountIndex] = {
     ...site.accounts[accountIndex],
@@ -407,4 +413,57 @@ function compareVersions(a = '', b = '') {
     }
   }
   return 0;
+}
+
+function selectAccountForUpdate(origin, site, currentCookies = []) {
+  const accounts = (site?.accounts || []).filter((acc) => acc.autoSync && Array.isArray(acc.cookies) && acc.cookies.length);
+  if (!accounts.length || !currentCookies.length) {
+    return null;
+  }
+  const active = activeAccountMap[origin];
+  const currentMap = new Map(
+    currentCookies.map((cookie) => [buildCookieKey(cookie), cookie.value])
+  );
+  let best = null;
+  accounts.forEach((account) => {
+    const { overlap, valueMatches, ratio, total } = scoreAccountCookies(account.cookies, currentMap);
+    const requiredMatches = Math.min(MIN_VALUE_MATCHES, total || 1);
+    const passesThreshold =
+      valueMatches >= requiredMatches || (valueMatches > 0 && ratio >= MIN_VALUE_MATCH_RATIO);
+    if (!passesThreshold && overlap < requiredMatches) {
+      return;
+    }
+    const score =
+      valueMatches * 3 +
+      overlap +
+      (active?.accountId === account.id ? 1 : 0);
+    if (!best || score > best.score) {
+      best = { accountId: account.id, score };
+    }
+  });
+  return best ? best.accountId : null;
+}
+
+function scoreAccountCookies(accountCookies = [], currentMap) {
+  let overlap = 0;
+  let valueMatches = 0;
+  accountCookies.forEach((cookie) => {
+    const key = buildCookieKey(cookie);
+    if (!currentMap.has(key)) {
+      return;
+    }
+    overlap += 1;
+    if (currentMap.get(key) === cookie.value) {
+      valueMatches += 1;
+    }
+  });
+  const total = accountCookies.length || 0;
+  const ratio = total ? valueMatches / total : 0;
+  return { overlap, valueMatches, ratio, total };
+}
+
+function buildCookieKey(cookie = {}) {
+  const domain = (cookie.domain || '').replace(/^\./, '').toLowerCase();
+  const path = (cookie.path || '/').trim() || '/';
+  return `${domain}|${path}|${cookie.name || ''}`;
 }
