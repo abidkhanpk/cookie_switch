@@ -1,0 +1,334 @@
+# Cookie Switch — release & publish on tag
+# ─────────────────────────────────────────────────────────────────────────────
+# Push a tag like  v1.47.0  (must match "version" in manifest.json) and this:
+#   1. builds a Chrome zip + a Firefox zip from the TAGGED commit
+#   2. creates/updates the GitHub Release for that tag with both zips attached
+#   3. uploads + submits the Chrome zip to the Chrome Web Store (API v2)
+#   4. submits the Firefox zip to AMO (addons.mozilla.org) as a listed version
+# Jobs 2–4 run in parallel after the build, so one store failing does not
+# block the GitHub Release or the other store.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   CHROME_PUBLISHER_ID    Dashboard → Publisher → Settings
+#   CHROME_EXTENSION_ID    32-char item ID from the Developer Dashboard
+#   CHROME_CLIENT_ID       Google Cloud OAuth client (Chrome Web Store API)
+#   CHROME_CLIENT_SECRET   same OAuth client
+#   CHROME_REFRESH_TOKEN   OAuth Playground exchange, scope: chromewebstore
+#   AMO_JWT_ISSUER         addons.mozilla.org → Developer Hub → API keys
+#   AMO_JWT_SECRET         same page (shown only once)
+# See SETUP.md (delivered with this file) for exact steps to get each one.
+#
+# Notes:
+# - Chrome's v1.1 API was retired on 2026-10-15 — this uses the v2 API
+#   directly with curl, no third-party publish action.
+# - A store listing must already exist for Chrome (the API cannot create
+#   items). Firefox can be created by this workflow on first run, using
+#   amo-metadata.json in the repo root.
+# - workflow_dispatch is a dry run only: it builds + validates the zips and
+#   NEVER releases or publishes, from any ref.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Release & Publish
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build & validate only — no release, no store publishing"
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # ── 1. Build both store packages from the tagged commit ──────────────────
+  build:
+    name: Build Chrome + Firefox packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.pkg.outputs.version }}
+    steps:
+      - name: Checkout the tagged commit
+        uses: actions/checkout@v4
+        # On a tag push, checkout defaults to the exact tagged commit.
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build + validate store packages
+        id: pkg
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, shutil, sys, zipfile
+          from pathlib import Path
+
+          root = Path.cwd()
+          src_manifest = json.loads((root / "manifest.json").read_text())
+          version = str(src_manifest["version"]).strip()
+
+          # On a tag push the tag IS the release: v1.47.0 must equal the
+          # manifest version, otherwise both stores reject/mismatch it.
+          if os.environ.get("REF_TYPE") == "tag":
+              tag_version = os.environ["REF_NAME"].lstrip("v")
+              if tag_version != version:
+                  sys.exit(
+                      f"::error::Tag {os.environ['REF_NAME']} (={tag_version}) does not match "
+                      f"manifest.json version {version}. Bump manifest.json or retag."
+                  )
+          if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+              sys.exit(f"::error::manifest.json version '{version}' is not X.Y.Z")
+
+          files = [f for f in ("background.js", "popup.js", "popup.html",
+                               "popup.css", "README.md") if (root / f).exists()]
+          icons = sorted((root / "icons").glob("*.png")) if (root / "icons").is_dir() else []
+          if not files or not icons:
+              sys.exit("::error::Expected extension files / icons not found at repo root")
+
+          def chrome_manifest(m):
+              m = dict(m)
+              m.pop("browser_specific_settings", None)  # Firefox-only key
+              m["background"] = {"service_worker": "background.js"}
+              return m
+
+          def firefox_manifest(m):
+              m = dict(m)
+              # Firefox does not support background.service_worker — it uses
+              # scripts (event page). Chrome MV3 ignores "scripts", FF 121+ uses it.
+              m["background"] = {"service_worker": "background.js",
+                                 "scripts": ["background.js"]}
+              gecko = dict(m.get("browser_specific_settings", {}).get("gecko", {}))
+              gecko.setdefault("id", "cookie-switch@absons.net")
+              gecko.setdefault("strict_min_version", "121.0")
+              # Mandatory for new AMO add-ons since 2025-11-03.
+              gecko.setdefault("data_collection_permissions", {"required": ["none"]})
+              m["browser_specific_settings"] = {"gecko": gecko}
+              return m
+
+          dist = root / "dist"
+          dist.mkdir(exist_ok=True)
+          built = {}
+          for target, make in (("chrome", chrome_manifest), ("firefox", firefox_manifest)):
+              manifest = make(src_manifest)
+              zip_path = dist / f"cookie-switch-{version}-{target}.zip"
+              with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+                  z.writestr("manifest.json", json.dumps(manifest, indent=2))
+                  for f in files:
+                      z.write(root / f, f)
+                  for icon in icons:
+                      z.write(icon, f"icons/{icon.name}")
+              # Validate: manifest at zip ROOT, version intact, parses as JSON.
+              with zipfile.ZipFile(zip_path) as z:
+                  names = z.namelist()
+                  assert "manifest.json" in names, f"{target}: manifest.json not at zip root"
+                  assert not any(n.startswith(("__MACOSX", ".git")) for n in names), f"{target}: junk in zip"
+                  check = json.loads(z.read("manifest.json"))
+                  assert check["version"] == version, f"{target}: version mismatch in zip"
+                  if target == "firefox":
+                      assert check["browser_specific_settings"]["gecko"]["id"], "firefox: missing gecko id"
+              built[target] = zip_path.name
+              print(f"built {zip_path.name} ({zip_path.stat().st_size} bytes)")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"version={version}\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as s:
+              s.write(f"## Cookie Switch {version}\n\n"
+                      f"- Chrome: `{built['chrome']}`\n- Firefox: `{built['firefox']}`\n")
+          PY
+
+      - name: Lint Firefox package (informational)
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/ff-src
+          unzip -q dist/*-firefox.zip -d /tmp/ff-src
+          npx -y web-ext@10 lint --source-dir /tmp/ff-src --output text || true
+
+      - name: Upload packages as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-packages
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  # ── 2. GitHub Release on the tagged commit ───────────────────────────────
+  release:
+    name: GitHub Release
+    needs: build
+    if: ${{ github.ref_type == 'tag' && inputs.dry_run != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # create the release for this tag
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: store-packages
+          path: dist
+
+      - name: Create / update release for this tag
+        uses: softprops/action-gh-release@v2
+        with:
+          # No tag_name/target needed: on a tag push the release is created
+          # for the pushed tag, i.e. exactly the tagged commit.
+          name: Cookie Switch ${{ github.ref_name }}
+          files: dist/*.zip
+          generate_release_notes: true
+          make_latest: true
+          fail_on_unmatched_files: true
+
+  # ── 3. Chrome Web Store (API v2: upload + publish) ───────────────────────
+  publish-chrome:
+    name: Publish to Chrome Web Store
+    needs: build
+    if: ${{ github.ref_type == 'tag' && inputs.dry_run != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: store-packages
+          path: dist
+
+      - name: Upload + publish via Chrome Web Store API v2
+        env:
+          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        run: |
+          set -euo pipefail
+          for v in CHROME_PUBLISHER_ID CHROME_EXTENSION_ID CHROME_CLIENT_ID \
+                   CHROME_CLIENT_SECRET CHROME_REFRESH_TOKEN; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Missing repository secret $v — see SETUP.md"
+              exit 1
+            fi
+          done
+
+          ZIP=$(ls dist/*-chrome.zip)
+          echo "Uploading $ZIP"
+
+          ACCESS_TOKEN=$(curl -sS https://oauth2.googleapis.com/token \
+            -d "client_id=${CHROME_CLIENT_ID}" \
+            -d "client_secret=${CHROME_CLIENT_SECRET}" \
+            -d "refresh_token=${CHROME_REFRESH_TOKEN}" \
+            -d "grant_type=refresh_token" | jq -er '.access_token')
+          echo "Got access token"
+
+          ITEM="publishers/${CHROME_PUBLISHER_ID}/items/${CHROME_EXTENSION_ID}"
+
+          HTTP=$(curl -sS -o /tmp/upload.json -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -T "$ZIP" \
+            "https://chromewebstore.googleapis.com/upload/v2/${ITEM}:upload")
+          cat /tmp/upload.json; echo
+          if [ "$HTTP" -lt 200 ] || [ "$HTTP" -ge 300 ]; then
+            echo "::error::Chrome upload failed (HTTP $HTTP)"
+            exit 1
+          fi
+          STATE=$(jq -r '.uploadState // empty' /tmp/upload.json)
+          if [ "$STATE" = "FAILURE" ] || [ "$STATE" = "NOT_FOUND" ]; then
+            echo "::error::Chrome upload state: $STATE"
+            exit 1
+          fi
+
+          # Wait until Google has processed the upload (usually seconds).
+          for i in $(seq 1 18); do
+            STATUS=$(curl -sS -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+              "https://chromewebstore.googleapis.com/v2/${ITEM}:fetchStatus" || true)
+            echo "$STATUS" | head -c 500; echo
+            if echo "$STATUS" | grep -Eq 'SUCCESS|PUBLISHED'; then break; fi
+            if echo "$STATUS" | grep -q 'FAILURE'; then
+              echo "::error::Chrome processing failed"; exit 1
+            fi
+            sleep 10
+          done
+
+          HTTP=$(curl -sS -o /tmp/publish.json -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            "https://chromewebstore.googleapis.com/v2/${ITEM}:publish")
+          cat /tmp/publish.json; echo
+          if [ "$HTTP" -lt 200 ] || [ "$HTTP" -ge 300 ]; then
+            echo "::error::Chrome publish/submit-for-review failed (HTTP $HTTP)"
+            exit 1
+          fi
+          echo "Submitted to Chrome Web Store for review ✔"
+
+  # ── 4. Firefox Add-ons / AMO (web-ext sign, listed channel) ──────────────
+  publish-firefox:
+    name: Publish to Firefox Add-ons (AMO)
+    needs: build
+    if: ${{ github.ref_type == 'tag' && inputs.dry_run != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout (for amo-metadata.json on first submission)
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22 (web-ext v10 requires Node ≥ 22)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: store-packages
+          path: dist
+
+      - name: Submit to AMO with web-ext
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          set -euo pipefail
+          for v in AMO_JWT_ISSUER AMO_JWT_SECRET; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Missing repository secret $v — see SETUP.md"
+              exit 1
+            fi
+          done
+
+          npm install -g web-ext@10
+
+          rm -rf firefox-src && mkdir firefox-src
+          unzip -q dist/*-firefox.zip -d firefox-src
+
+          # --amo-metadata is required only for the FIRST listed submission
+          # (summary + categories + license). On updates it's optional; if
+          # the file is present we pass it, AMO reuses/updates listing data.
+          META_ARGS=()
+          if [ -f amo-metadata.json ]; then
+            META_ARGS+=(--amo-metadata amo-metadata.json)
+          fi
+
+          # --approval-timeout 0 = submit and finish; do NOT wait in CI for
+          # human review (that takes hours–days for listed add-ons).
+          web-ext sign \
+            --source-dir firefox-src \
+            --channel listed \
+            --approval-timeout 0 \
+            --api-key "$AMO_JWT_ISSUER" \
+            --api-secret "$AMO_JWT_SECRET" \
+            "${META_ARGS[@]}"
+          echo "Submitted to AMO for review ✔"
