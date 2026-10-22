@@ -48,10 +48,9 @@ Whenever you update the files, revisit `chrome://extensions` and press **Reload*
 - **Site Export** – Use the site-level buttons to export/import all accounts for a specific origin.
 - **Full Backup** – Open the settings dialog (⚙) and use "Backup All Sites" / "Restore All Sites" to export/import every saved site.
 
-### 6. Settings & Manual Updates
-- Click the **⚙** button in the popup header to open the settings dialog.
-- Use **Check for updates** to compare your local version with the latest commit on GitHub (master branch). If a newer version exists, download the ZIP and reload the unpacked extension via `chrome://extensions`.
-- Chrome does not allow unpacked extensions to self-update, so manual reloads remain the safest and most transparent approach.
+### 6. Settings & Updates
+- Click the **⚙** button in the popup header to open the settings dialog, where the full backup / restore tools live.
+- Updates are delivered automatically through the Chrome Web Store / Firefox Add-ons — the extension itself never checks for, downloads, or installs updates.
 
 ### 7. Deleting Data
 - Removing a site drops all associated accounts and clears auto-update mappings for that origin.

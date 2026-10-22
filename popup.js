@@ -30,11 +30,6 @@ const closeHelpBtn = document.getElementById('closeHelpBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsModal = document.getElementById('settingsModal');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
-const downloadLatestLink = document.getElementById('downloadLatestLink');
-const updateStatus = document.getElementById('updateStatus');
-const updateInstructions = document.getElementById('updateInstructions');
-const autoUpdateToggle = document.getElementById('autoUpdateToggle');
 const versionLabel = document.querySelector('.app-version');
 const LAST_SITE_KEY = 'lastSiteKey';
 
@@ -50,29 +45,12 @@ const IMPORT_BUTTON_LABELS = {
   edit: 'Update from current account'
 };
 let helpLoaded = false;
-let checkingUpdates = false;
-let autoUpdateEnabled = false;
-let updateAvailableVersion = null;
-const REMOTE_MANIFEST_URL = 'https://github.com/abidkhanpk/cookie_switch/raw/refs/heads/master/manifest.json';
-const AUTO_UPDATE_MESSAGE = 'refresh-auto-update-alarm';
-
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'local') {
-    return;
-  }
-  if (changes.updateAvailableVersion) {
-    updateAvailableVersion = changes.updateAvailableVersion.newValue || null;
-    refreshUpdateUI();
-  }
-});
-
 init();
 
 function init() {
   bindEvents();
   loadProfiles();
   setVersionLabel();
-  loadSettings();
 }
 
 function bindEvents() {
@@ -174,16 +152,6 @@ function bindEvents() {
       }
     });
   }
-  if (checkUpdatesBtn) {
-    checkUpdatesBtn.addEventListener('click', checkForUpdates);
-  }
-  if (autoUpdateToggle) {
-    autoUpdateToggle.addEventListener('change', async () => {
-      autoUpdateEnabled = autoUpdateToggle.checked;
-      await chrome.storage.local.set({ autoUpdateEnabled });
-      configureAutoUpdateTimer();
-    });
-  }
 }
 
 async function loadProfiles() {
@@ -197,17 +165,6 @@ async function loadProfiles() {
   updateSiteInput();
   resetAccountForm();
   renderAccounts();
-}
-
-async function loadSettings() {
-  const stored = await chrome.storage.local.get({ autoUpdateEnabled: false, updateAvailableVersion: null });
-  autoUpdateEnabled = Boolean(stored.autoUpdateEnabled);
-  updateAvailableVersion = stored.updateAvailableVersion || null;
-  if (autoUpdateToggle) {
-    autoUpdateToggle.checked = autoUpdateEnabled;
-  }
-  refreshUpdateUI();
-  configureAutoUpdateTimer();
 }
 
 function persistProfiles() {
@@ -959,83 +916,11 @@ function formatInline(str) {
 function openSettingsModal() {
   if (!settingsModal) return;
   settingsModal.classList.remove('hidden');
-  if (updateStatus) {
-    updateStatus.textContent = '';
-  }
-  if (autoUpdateToggle) {
-    autoUpdateToggle.checked = autoUpdateEnabled;
-  }
-  refreshUpdateUI();
 }
 
 function closeSettingsModal() {
   if (!settingsModal) return;
   settingsModal.classList.add('hidden');
-}
-
-async function checkForUpdates() {
-  if (!updateStatus || checkingUpdates) return;
-  updateStatus.textContent = 'Checking…';
-  checkingUpdates = true;
-  try {
-    const response = await fetch(REMOTE_MANIFEST_URL);
-    if (!response.ok) {
-      throw new Error('Unable to load remote manifest.');
-    }
-    const data = await response.json();
-    const remoteVersion = data.version || 'unknown';
-    const comparison = compareVersions(remoteVersion, APP_VERSION);
-    if (comparison > 0) {
-      updateStatus.innerHTML = `New version <strong>${remoteVersion}</strong> is available.`;
-      await chrome.storage.local.set({ updateAvailableVersion: remoteVersion });
-    } else if (comparison === 0) {
-      updateStatus.textContent = 'You already have the latest version installed.';
-      await chrome.storage.local.set({ updateAvailableVersion: null });
-    } else {
-      updateStatus.textContent = 'You are running a newer development version.';
-      await chrome.storage.local.set({ updateAvailableVersion: null });
-    }
-  } catch (error) {
-    updateStatus.textContent = error.message;
-  } finally {
-    checkingUpdates = false;
-  }
-}
-
-function configureAutoUpdateTimer() {
-  chrome.runtime.sendMessage(
-    {
-      type: AUTO_UPDATE_MESSAGE,
-      payload: { enabled: autoUpdateEnabled }
-    },
-    () => {}
-  );
-}
-
-function compareVersions(a = '', b = '') {
-  const aParts = a.split('.').map((n) => parseInt(n, 10) || 0);
-  const bParts = b.split('.').map((n) => parseInt(n, 10) || 0);
-  const length = Math.max(aParts.length, bParts.length);
-  for (let i = 0; i < length; i += 1) {
-    const diff = (aParts[i] || 0) - (bParts[i] || 0);
-    if (diff !== 0) {
-      return diff > 0 ? 1 : -1;
-    }
-  }
-  return 0;
-}
-
-function refreshUpdateUI() {
-  if (!downloadLatestLink || !updateInstructions) {
-    return;
-  }
-  if (updateAvailableVersion) {
-    downloadLatestLink.classList.remove('hidden');
-    updateInstructions.classList.remove('hidden');
-  } else {
-    downloadLatestLink.classList.add('hidden');
-    updateInstructions.classList.add('hidden');
-  }
 }
 
 function setRowMeta(row, cookie = {}) {
